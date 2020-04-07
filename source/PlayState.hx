@@ -3,12 +3,11 @@ package;
 import flixel.math.FlxMath;
 import flixel.FlxState;
 import flixel.text.FlxText;
-import flixel.math.FlxAngle;
-import flixel.math.FlxMath;
 
 class PlayState extends FlxState
 {
 	var text = new FlxText();
+	var player:Hero = new Hero();
 	var dy:Float = 0;
 	var dt:Float = 0;
 
@@ -21,6 +20,9 @@ class PlayState extends FlxState
 		text.screenCenter();
 		text.moves = true;
 		add(text);
+
+		player = new Hero(25.0, 25.0);
+		//add(player);
 	}
 
 	override public function update(elapsed:Float):Void
@@ -28,7 +30,8 @@ class PlayState extends FlxState
 		super.update(elapsed);
 		
 		dt += elapsed;
-		dy = FlxMath.fastSin(dt * 2.5) * 4.0;
-		text.setPosition(text.x, text.y + dy);
+		dy = FlxMath.fastSin(dt * 2.5) * 256.0;
+		//text.setPosition(text.x, text.y + dy);
+		text.velocity.set(0, dy);
 	}
 }
