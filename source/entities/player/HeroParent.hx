@@ -5,6 +5,8 @@ import flixel.FlxG;
 import flixel.util.FlxColor;
 import flixel.FlxSprite;
 import flixel.FlxObject;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
 
 class Hero extends FlxSprite {
 	public static var WIDTH(default, never):Int = 32;
@@ -12,11 +14,11 @@ class Hero extends FlxSprite {
 
 	public static var DEAD_ZONE(default, never):Float = 0.1;
 
-	public static var GRAVITY(default, never):Float = 300;
-	public static var TERMINAL_VELOCITY(default, never):Float = 600;
+	public static var GRAVITY(default, never):Float = 981;
+	public static var TERMINAL_VELOCITY(default, never):Float = 1500;
 	public static var X_TARGET_SPEED(default, never):Float = 200;
 	
-	public static var JUMP_SPEED(default, never):Float = -200;
+	public static var JUMP_SPEED(default, never):Float = -350;
 
 	private var leftInput:Int = 0;
 	private var rightInput:Int = 0;
@@ -24,6 +26,8 @@ class Hero extends FlxSprite {
 
 	private var jumpInput:Int = 0;
 	
+	private var currentJumpCount:Int = 0;
+	public var maxJumpCount:Int = 1;
 	private var facingDirection:Int = 1;
 	private var grounded:Bool = false;
 	private var xSpeed:Float = 0;
@@ -42,16 +46,19 @@ class Hero extends FlxSprite {
 	override function update(elapsed:Float) 
 	{
 		updateGrounded();
-		
+
 		// Set up nicer input-handling for movement.
 		gatherInputs();
 
 		// Horizontal movement
 		var facingDirection:Int = getMoveDirectionCoefficient(horizontalMovementAxis);
-		velocity.x = X_TARGET_SPEED * facingDirection;
+
+		//velocity.x = X_TARGET_SPEED * facingDirection
+		velocity.x = FlxMath.lerp(velocity.x, X_TARGET_SPEED * facingDirection, 1 / 8);
 	   
 		// Jump
-		jump(jumpInput);
+		if (jumpInput == 1)
+			jump(maxJumpCount);
 
 		super.update(elapsed);
 	}
@@ -84,10 +91,7 @@ class Hero extends FlxSprite {
 	**/
 	private function getMoveDirectionCoefficient(axis:Int):Int 
 	{      
-		if (Math.abs(axis) < DEAD_ZONE)
-			return 0;
-		else
-			return FlxMath.signOf(axis);
+		return (Math.abs(axis) < DEAD_ZONE)? 0 : FlxMath.signOf(axis);
 	}
 
 	public function updateGrounded(newGround:Bool = false)
@@ -100,12 +104,18 @@ class Hero extends FlxSprite {
 
 	public function onCollision(obj1:FlxSprite, obj2:FlxSprite)
 	{
-		
+		if (isOnGround())
+			currentJumpCount = 0;
 	}
 
 	public function isOnGround() 
 	{
 		return grounded;
+	}
+
+	public function canJump() 
+	{
+		return (currentJumpCount <= maxJumpCount);
 	}
 
 	/**
@@ -115,9 +125,10 @@ class Hero extends FlxSprite {
 	**/
 	private function jump(jumpCount:Int):Void 
 	{
-		if (jumpInput == 1) 
+		if (canJump()) 
 		{
 			velocity.y = JUMP_SPEED;
+			currentJumpCount++;
 			updateGrounded(false);
 		}
 	}
