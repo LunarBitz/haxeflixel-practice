@@ -5,38 +5,57 @@ import flixel.FlxG;
 import flixel.util.FlxColor;
 import flixel.FlxSprite;
 import flixel.FlxObject;
-import flixel.tweens.FlxTween;
-import flixel.tweens.FlxEase;
 
-class Hero extends FlxSprite {
-	public static var WIDTH(default, never):Int = 32;
-	public static var HEIGHT(default, never):Int = 32;
+class Hero extends FlxSprite 
+{
+	// Graphics
+	private var playerWidth:Int;
+	private var playerHeight:Int;
+	private var playerTilt:Int;
 
-	public static var DEAD_ZONE(default, never):Float = 0.1;
+	private static var THICKNESS_NORMAL(default, never):Int = 24;
+	private static var TILT_NORMAL(default, never):Int = 0;
+	private static var TILT_RUNNING(default, never):Int = 3;
+	private static var HEIGHT_NORMAL(default, never):Int = 32;
+	private static var HEIGHT_JUMPING(default, never):Int = 36;
+	private static var HEIGHT_CROUCHING(default, never):Int = 24;
 
-	public static var GRAVITY(default, never):Float = 981;
-	public static var TERMINAL_VELOCITY(default, never):Float = 1500;
-	public static var X_TARGET_SPEED(default, never):Float = 200;
-	
-	public static var JUMP_SPEED(default, never):Float = -350;
+	// Input
+	private static var DEAD_ZONE(default, never):Float = 0.1;
+	private static var MOVEMENT_INTERP(default, never):Float = 1/8;
 
 	private var leftInput:Int = 0;
 	private var rightInput:Int = 0;
-	private var horizontalMovementAxis:Int = 0;
-
 	private var jumpInput:Int = 0;
+	private var crouchInput:Int = 0;
+
+	private var horizontalMovementAxis:Float = 0;
 	
-	private var currentJumpCount:Int = 0;
-	public var maxJumpCount:Int = 1;
-	private var facingDirection:Int = 1;
-	private var grounded:Bool = false;
+	// Movement
+	private static var GRAVITY(default, never):Float = 981;
+	private static var TERMINAL_VELOCITY(default, never):Float = 1500;
+	private static var X_TARGET_SPEED(default, never):Float = 200;
+	private static var JUMP_SPEED(default, never):Float = -350;
+
 	private var xSpeed:Float = 0;
 	private var ySpeed:Float = 0;
+	
+	// Jumping
+	private var currentJumpCount:Int = 0;
+	private var maxJumpCount:Int = 1;
+
+	// Player States
+	private var facingDirection:Int = 1;
+	private var grounded:Bool = false;
+	
 
 	public function new(?X:Float = 0, ?Y:Float = 0) 
 	{
 		super(X, Y);
-		makeGraphic(WIDTH, HEIGHT, FlxColor.WHITE);
+
+		playerWidth = THICKNESS_NORMAL;
+		playerHeight = HEIGHT_NORMAL;
+		makeGraphic(playerWidth, playerHeight, FlxColor.WHITE);
 
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
@@ -45,22 +64,33 @@ class Hero extends FlxSprite {
 
 	override function update(elapsed:Float) 
 	{
+		// Check and update the grounded state of the player
 		updateGrounded();
 
 		// Set up nicer input-handling for movement.
 		gatherInputs();
 
-		// Horizontal movement
+		// Update facing direction
 		var facingDirection:Int = getMoveDirectionCoefficient(horizontalMovementAxis);
 
-		//velocity.x = X_TARGET_SPEED * facingDirection
-		velocity.x = FlxMath.lerp(velocity.x, X_TARGET_SPEED * facingDirection, 1 / 8);
+		// Smooth out horizontal movement
+		velocity.x = FlxMath.lerp(velocity.x, X_TARGET_SPEED * facingDirection, MOVEMENT_INTERP);
 	   
 		// Jump
 		if (jumpInput == 1)
 			jump(maxJumpCount);
 
+
+
 		super.update(elapsed);
+	}
+
+	/**
+		Function that simply returns an "axis" as a **Float** from two input values.
+	**/
+	private function inputAxis(negativeInput:Float, positiveInput:Float):Float 
+	{
+		return (positiveInput - negativeInput);
 	}
 
 	/**
@@ -75,26 +105,25 @@ class Hero extends FlxSprite {
 		horizontalMovementAxis = inputAxis(leftInput, rightInput);
 		
 		jumpInput = (FlxG.keys.justPressed.Z)? 1:0;
-	}
-
-	private function inputAxis(negativeInput:Int, positiveInput:Int):Int 
-	{
-		return (positiveInput - negativeInput);
+		crouchInput = (FlxG.keys.pressed.DOWN)? 1:0;
 	}
 
 	/**
 		Uses player input to determine if movement should occur in a positive or negative X 
 		direction. If no movement inputs are detected, 0 is returned instead.
-		@param leftPressed Boolean indicating if the "left" movement button is pressed.
-		@param rightPressed Boolean indicating if the "right" movement button is pressed.
+		@param axis Float representing an axis of input.
 		@return Returns 1, 0, or -1. Multiply movement speed by this to set movement direction.
 	**/
-	private function getMoveDirectionCoefficient(axis:Int):Int 
+	private function getMoveDirectionCoefficient(axis:Float):Int 
 	{      
-		return (Math.abs(axis) < DEAD_ZONE)? 0 : FlxMath.signOf(axis);
+		return (Math.abs(axis) <= DEAD_ZONE)? 0 : FlxMath.signOf(axis);
 	}
 
-	public function updateGrounded(newGround:Bool = false)
+	/**
+		Function to update the ***grounded*** variable via ***newBool*** or **FlxSprite.isTouching()**
+		@param newBool Boolean to update the ***grounded*** variable with. Will be ignored if *False*.
+	**/
+	public function updateGrounded(newGround:Bool = false):Void
 	{
 		if (newGround)
 			grounded = newGround;
@@ -102,17 +131,19 @@ class Hero extends FlxSprite {
 			grounded = this.isTouching(FlxObject.DOWN);
 	}
 
-	public function onCollision(obj1:FlxSprite, obj2:FlxSprite)
-	{
-		if (isOnGround())
-			currentJumpCount = 0;
+	/**
+		Returns if the player is on the ground or not
+		@return Returns the ***grounded*** variable.
+	**/
+	public function isOnGround():Bool 
+	{ 
+		return grounded; 
 	}
 
-	public function isOnGround() 
-	{
-		return grounded;
-	}
-
+	/**
+		Returns if the player is allowed to jump. Does NOT check if the player is grounded to allow for multi-jumping
+		@return Returns *True* only if ***currentJumpCount*** is less than ***maxJumpCount***.
+	**/
 	public function canJump() 
 	{
 		return (currentJumpCount <= maxJumpCount);
@@ -121,7 +152,7 @@ class Hero extends FlxSprite {
 	/**
 		Simple function for handling jump logic.
 		At the moment, this doesn't prevent the player from jumping while in the air.
-		@param jumpJustPressed Boolean indicating if the jump button was pressed this frame.
+		@param jumpCount Number of jumps allowed.
 	**/
 	private function jump(jumpCount:Int):Void 
 	{
@@ -130,6 +161,19 @@ class Hero extends FlxSprite {
 			velocity.y = JUMP_SPEED;
 			currentJumpCount++;
 			updateGrounded(false);
+		}
+	}
+
+	/**
+		Function that's called to resolve collision overlaps when invoked.
+		@param player Object that collided with something.
+		@param other Object that **player** has collided with.
+	**/
+	public function onCollision(player:FlxSprite, other:FlxSprite)
+	{
+		if (isOnGround())
+		{
+			currentJumpCount = 0;
 		}
 	}
 }
