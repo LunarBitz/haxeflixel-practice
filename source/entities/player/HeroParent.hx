@@ -1,6 +1,10 @@
 package entities.player;
 
+import flixel.system.debug.watch.Watch;
+import flixel.system.FlxSplash;
 import haxe.macro.Expr.Case;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
 import flixel.math.FlxMath;
 import flixel.FlxG;
 import flixel.util.FlxColor;
@@ -19,13 +23,16 @@ enum ActionState
 class Hero extends FlxSprite 
 {
 	// Graphics
-	private var playerWidth:Int;
-	private var playerHeight:Int;
+	private var playerGraphic:FlxSprite;
+	private var playerWidth:Float = 0;
+	private var playerHeight:Float = 0;
+	private var targetWidth:Float = 0;
+	private var targetHeight:Float = 0;
 
-	private static var THICKNESS_NORMAL(default, never):Int = 16;
-	private static var HEIGHT_NORMAL(default, never):Int = 32;
-	private static var HEIGHT_JUMPING(default, never):Int = 36;
-	private static var HEIGHT_CROUCHING(default, never):Int = 16;
+	private static var THICKNESS_NORMAL(default, never):Float = 16;
+	private static var HEIGHT_NORMAL(default, never):Float = 32;
+	private static var HEIGHT_JUMPING(default, never):Float = 36;
+	private static var HEIGHT_CROUCHING(default, never):Float = 16;
 
 	// Input
 	private static var DEAD_ZONE(default, never):Float = 0.1;
@@ -64,13 +71,17 @@ class Hero extends FlxSprite
 		actionState(ActionState.Normal);
 		//
 
-		playerWidth = THICKNESS_NORMAL;
-		playerHeight = HEIGHT_NORMAL;
-		makeGraphic(playerWidth, playerHeight, FlxColor.WHITE);
+		targetWidth = THICKNESS_NORMAL;
+		targetHeight = HEIGHT_NORMAL;
+		playerGraphic = makeGraphic(Std.int(targetWidth), Std.int(targetHeight), FlxColor.WHITE);
 
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
 		maxVelocity.y = TERMINAL_VELOCITY;
+
+		FlxG.watch.add(this, "targetHeight", "Target Height");
+		FlxG.watch.add(this, "playerHeight", "Player Height");
+		FlxG.watch.add(this, "origin", "Origin");
 	}
 
 	override function update(elapsed:Float) 
@@ -100,6 +111,8 @@ class Hero extends FlxSprite
 		}
 
 		handleActionStates();
+
+		updateHeight();
 
 		super.update(elapsed);
 	}
@@ -174,16 +187,15 @@ class Hero extends FlxSprite
 
 	/**
 		Returns if the player is allowed to jump. Does NOT check if the player is grounded to allow for multi-jumping
-		@return Returns *True* only if ***currentJumpCount*** is less than ***maxJumpCount***.
+		@return Returns *True* only if *`currentJumpCount` < `maxJumpCount`*.
 	**/
 	public function canJump() 
 	{
-		return (currentJumpCount <= maxJumpCount);
+		return  (isOnGround() || (currentJumpCount <= maxJumpCount));
 	}
 
 	/**
 		Simple function for handling jump logic.
-		At the moment, this doesn't prevent the player from jumping while in the air.
 		@param jumpCount Number of jumps allowed.
 	**/
 	private function jump(jumpCount:Int):Void 
@@ -205,10 +217,11 @@ class Hero extends FlxSprite
 	/**
 		Function that's called to resolve collision overlaps when invoked.
 		@param player Object that collided with something.
-		@param other Object that **player** has collided with.
+		@param other Object that `player` has collided with.
 	**/
 	public function onCollision(player:FlxSprite, other:FlxSprite)
 	{
+		unstick(player, other);
 		if (isOnGround())
 		{
 			currentJumpCount = 0;
@@ -216,7 +229,36 @@ class Hero extends FlxSprite
 		}
 	}
 
-	public function updateHeight(newHeight:Int, preserveVolume:Bool = false):Void
+	private function unstick(player:FlxSprite, other:FlxSprite) 
+	{
+
+		//Horizontal Collision
+		if (overlapsAt(x + velocity.x, y, other))
+		{
+			while(!overlapsAt(x + FlxMath.signOf(velocity.x), y, other))
+			{
+				x += FlxMath.signOf(velocity.x);
+			}
+			//xSpeed = 0;
+		}
+
+		//vertical Collision
+		if (overlapsAt(x, y + velocity.y, other))
+		{
+			while(!overlapsAt(x, y + FlxMath.signOf(velocity.y), other))
+			{
+				y += FlxMath.signOf(velocity.y);
+			}
+			//ySpeed = 0;
+		}	
+	}
+
+	public function setHeight(newHeight:Float) 
+	{
+		targetHeight = newHeight;
+	}
+
+	public function updateHeight():Void
 	{
 		/*
 		var prevHeight = this.height;
@@ -229,16 +271,38 @@ class Hero extends FlxSprite
 		this.updateHitbox();
 		*/
 
-		var prevHeight = this.height;
-		var prevWidth = this.width;
-		var heightDifference = newHeight - prevHeight;
-		var targetHeightPercentage = Math.abs(heightDifference) / ((newHeight + prevHeight)/2);
+		/*
+		var prevHeight = this.frameHeight;
+		var prevWidth = this.frameWidth;
+		var heightDifference = targetHeight - prevHeight;
+		var targetHeightPercentage = Math.abs(heightDifference) / ((targetHeight + prevHeight)/2);
 
-		var newWidth:Float = !preserveVolume? prevWidth : prevWidth + (prevWidth * targetHeightPercentage);
-		var newHeight:Float = newHeight;
+		targetWidth = !preserveVolume? prevWidth : prevWidth + (prevWidth * targetHeightPercentage);
+		targetHeight = newHeight;
+		*/
+		//playerWidth = FlxMath.lerp(playerWidth, targetWidth, 1/8);
+		//playerHeight = FlxMath.lerp(playerHeight, targetHeight, 1/8);
+
+		//FlxTween.tween(this, { playerWidth: targetWidth, playerHeight: targetHeight}, 0.5, { ease: FlxEase.linear, onStart: onStart, onUpdate: onUpdate, onComplete: onComplete, type: ONESHOT });
+		FlxTween.tween(this, { playerWidth: targetWidth, playerHeight: targetHeight}, 0.1, { type: FlxTweenType.PINGPONG, ease: FlxEase.linear, onComplete: updateHitboxNC});
+
+		origin.set(playerWidth/2, playerHeight);
+		setGraphicSize(Math.round(playerWidth), Math.round(playerHeight));
+	
+		//origin.set(width/2, height);
 		
-		this.setGraphicSize(Std.int(newWidth), Std.int(newHeight));
-		this.updateHitbox();
+		//width = playerWidth;
+		//height = playerHeight;
+		//offset.set(-0.5 * (width - frameWidth), -0.5 * (height - frameHeight));
+		//updateHitboxNC();
+		
+	}
+//tween:FlxTween
+	public function updateHitboxNC(tween:FlxTween):Void
+	{
+		width = Math.abs(scale.x) * frameWidth;
+		height = Math.abs(scale.y) * frameHeight;
+		offset.set(-0.5 * (width - frameWidth), -0.5 * (height - frameHeight));
 	}
 
 	public function handleActionStates():Void
@@ -246,13 +310,13 @@ class Hero extends FlxSprite
 		switch (actionState())
 		{
 			case (ActionState.Normal):
-				updateHeight(HEIGHT_NORMAL);
+				setHeight(HEIGHT_NORMAL);
 			case (ActionState.Crouching):
-				updateHeight(HEIGHT_CROUCHING);
+				setHeight(HEIGHT_CROUCHING);
 			case (ActionState.Jumping):
-				updateHeight(HEIGHT_JUMPING);
+				setHeight(HEIGHT_JUMPING);
 			case (ActionState.Sliding):
-				updateHeight(HEIGHT_CROUCHING);
+				setHeight(HEIGHT_CROUCHING);
 			case (ActionState.Null):
 		}
 	}
