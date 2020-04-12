@@ -1,28 +1,35 @@
 package entities.player;
 
+import haxe.macro.Expr.Case;
 import flixel.math.FlxMath;
 import flixel.FlxG;
 import flixel.util.FlxColor;
 import flixel.FlxSprite;
 import flixel.FlxObject;
 
+enum ActionState 
+{
+	Null;
+	Normal;
+	Jumping;
+	Crouching;
+	Sliding;
+}
+
 class Hero extends FlxSprite 
 {
 	// Graphics
 	private var playerWidth:Int;
 	private var playerHeight:Int;
-	private var playerTilt:Int;
 
-	private static var THICKNESS_NORMAL(default, never):Int = 24;
-	private static var TILT_NORMAL(default, never):Int = 0;
-	private static var TILT_RUNNING(default, never):Int = 3;
+	private static var THICKNESS_NORMAL(default, never):Int = 16;
 	private static var HEIGHT_NORMAL(default, never):Int = 32;
 	private static var HEIGHT_JUMPING(default, never):Int = 36;
-	private static var HEIGHT_CROUCHING(default, never):Int = 24;
+	private static var HEIGHT_CROUCHING(default, never):Int = 16;
 
 	// Input
 	private static var DEAD_ZONE(default, never):Float = 0.1;
-	private static var MOVEMENT_INTERP(default, never):Float = 1/8;
+	private static var MOVEMENT_INTERP(default, never):Float = 1/16;
 
 	private var leftInput:Int = 0;
 	private var rightInput:Int = 0;
@@ -45,6 +52,7 @@ class Hero extends FlxSprite
 	private var maxJumpCount:Int = 1;
 
 	// Player States
+	private var playerState:ActionState;
 	private var facingDirection:Int = 1;
 	private var grounded:Bool = false;
 	
@@ -52,6 +60,9 @@ class Hero extends FlxSprite
 	public function new(?X:Float = 0, ?Y:Float = 0) 
 	{
 		super(X, Y);
+
+		actionState(ActionState.Normal);
+		//
 
 		playerWidth = THICKNESS_NORMAL;
 		playerHeight = HEIGHT_NORMAL;
@@ -78,11 +89,32 @@ class Hero extends FlxSprite
 	   
 		// Jump
 		if (jumpInput == 1)
+		{
 			jump(maxJumpCount);
+		}
 
+		// Crouch
+		if (crouchInput == 1)
+		{
+			crouch();
+		}
 
+		handleActionStates();
 
 		super.update(elapsed);
+	}
+
+	private function actionState(newState:ActionState = ActionState.Null):ActionState
+	{
+		if (newState != ActionState.Null)
+		{
+			playerState = newState;
+			return newState;
+		}
+		else
+		{
+			return playerState;
+		}
 	}
 
 	/**
@@ -161,7 +193,13 @@ class Hero extends FlxSprite
 			velocity.y = JUMP_SPEED;
 			currentJumpCount++;
 			updateGrounded(false);
+			actionState(ActionState.Jumping);
 		}
+	}
+
+	private function crouch():Void 
+	{
+		actionState(ActionState.Crouching);
 	}
 
 	/**
@@ -174,6 +212,48 @@ class Hero extends FlxSprite
 		if (isOnGround())
 		{
 			currentJumpCount = 0;
+			actionState(ActionState.Normal);
+		}
+	}
+
+	public function updateHeight(newHeight:Int, preserveVolume:Bool = false):Void
+	{
+		/*
+		var prevHeight = this.height;
+		var targetHeightPercentage = Math.abs(newHeight - prevHeight) / ((newHeight + prevHeight)/2);
+
+		var newWidthScale = !preserveVolume? 1 : 1 + targetHeightPercentage;
+		var newHeightScale = 1 - targetHeightPercentage;
+
+		this.scale.set(newWidthScale, newHeightScale);
+		this.updateHitbox();
+		*/
+
+		var prevHeight = this.height;
+		var prevWidth = this.width;
+		var heightDifference = newHeight - prevHeight;
+		var targetHeightPercentage = Math.abs(heightDifference) / ((newHeight + prevHeight)/2);
+
+		var newWidth:Float = !preserveVolume? prevWidth : prevWidth + (prevWidth * targetHeightPercentage);
+		var newHeight:Float = newHeight;
+		
+		this.setGraphicSize(Std.int(newWidth), Std.int(newHeight));
+		this.updateHitbox();
+	}
+
+	public function handleActionStates():Void
+	{
+		switch (actionState())
+		{
+			case (ActionState.Normal):
+				updateHeight(HEIGHT_NORMAL);
+			case (ActionState.Crouching):
+				updateHeight(HEIGHT_CROUCHING);
+			case (ActionState.Jumping):
+				updateHeight(HEIGHT_JUMPING);
+			case (ActionState.Sliding):
+				updateHeight(HEIGHT_CROUCHING);
+			case (ActionState.Null):
 		}
 	}
 }

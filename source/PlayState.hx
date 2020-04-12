@@ -14,7 +14,7 @@ class PlayState extends FlxState
 	private static var WALL_START_X(default, never) = 150;
 	private static var WALL_START_Y(default, never) = 200;
 
-	private static var FIREBALL_COUNT(default, never) = 5;
+	private static var FIREBALL_COUNT(default, never) = 20;
 	private static var FIREBALL_SPAWN_BORDER(default, never) = 50;
 
 	private var hero:Hero;
@@ -64,7 +64,6 @@ class PlayState extends FlxState
 
 		// Uncomment to collide hero against all wall objects.
 		FlxG.collide(hero, walls, hero.onCollision);
-		trace(hero.isOnGround());
 
 		// Uncomment to trigger custom logic when a player overlaps with a fireball.
 		FlxG.overlap(hero, fireballs, resolveHeroFireballOverlap);
@@ -94,7 +93,7 @@ class PlayState extends FlxState
 		Function called when an overlap between hero and fireball is detected.
 	**/
 	private function resolveHeroFireballOverlap(hero:Hero, fireball:Fireball) {
-		trace("Hero and Fireball collided!");
+		//trace("Hero and Fireball collided!");
 		// fireball.kill();
 		// hero.kill();
 	}
