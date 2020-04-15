@@ -93,7 +93,7 @@ class PlayState extends FlxState
 		Function called when an overlap between hero and fireball is detected.
 	**/
 	private function resolveHeroFireballOverlap(hero:Hero, fireball:Fireball) {
-		trace("Hero and Fireball collided!");
+		//trace("Hero and Fireball collided!");
 		// fireball.kill();
 		// hero.kill();
 	}

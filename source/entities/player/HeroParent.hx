@@ -1,5 +1,7 @@
 package entities.player;
 
+import flixel.animation.FlxAnimation;
+import haxe.CallStack.StackItem;
 import flixel.system.debug.watch.Watch;
 import flixel.system.FlxSplash;
 import haxe.macro.Expr.Case;
@@ -11,7 +13,7 @@ import flixel.util.FlxColor;
 import flixel.FlxSprite;
 import flixel.FlxObject;
 
-enum ActionState 
+private enum ActionState 
 {
 	Null;
 	Normal;
@@ -20,10 +22,37 @@ enum ActionState
 	Sliding;
 }
 
+private class Action
+{
+	var lastState:ActionState = ActionState.Null;
+	var currentState:ActionState = ActionState.Null;
+	var changed:Bool = false;
+
+	private function checkChanged():Bool
+	{
+		return !(lastState == currentState);
+	}
+
+	private function setState(newState:ActionState = ActionState.Null):ActionState
+	{
+		lastState = currentState;
+		currentState = newState;
+
+		return currentState;
+	}
+
+	private function getState():ActionState
+	{
+		return currentState;
+	}
+
+}
+
+
+
 class Hero extends FlxSprite 
 {
 	// Graphics
-	private var playerGraphic:FlxSprite;
 	private var playerWidth:Float = 0;
 	private var playerHeight:Float = 0;
 	private var targetWidth:Float = 0;
@@ -59,6 +88,7 @@ class Hero extends FlxSprite
 	private var maxJumpCount:Int = 1;
 
 	// Player States
+	private var animCycle:Int = 0;
 	private var playerState:ActionState;
 	private var facingDirection:Int = 1;
 	private var grounded:Bool = false;
@@ -73,15 +103,22 @@ class Hero extends FlxSprite
 
 		targetWidth = THICKNESS_NORMAL;
 		targetHeight = HEIGHT_NORMAL;
-		playerGraphic = makeGraphic(Std.int(targetWidth), Std.int(targetHeight), FlxColor.WHITE);
+		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
+		animation.add("idle", [0], 30, false);
+		animation.add("crouching", [1, 2, 3, 4, 5, 6], 4, false);
+		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 4, false);
+
+		//updateAnimationAndHitbox("crouching");
 
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
 		maxVelocity.y = TERMINAL_VELOCITY;
 
-		FlxG.watch.add(this, "targetHeight", "Target Height");
-		FlxG.watch.add(this, "playerHeight", "Player Height");
-		FlxG.watch.add(this, "origin", "Origin");
+		//FlxG.watch.add(this, "targetHeight", "Target Height");
+		//FlxG.watch.add(this, "playerHeight", "Player Height");
+		//FlxG.watch.add(this, "origin", "Origin");
+		FlxG.watch.add(this, "animCycle", "Anim Cycle");
+		
 	}
 
 	override function update(elapsed:Float) 
@@ -111,8 +148,6 @@ class Hero extends FlxSprite
 		}
 
 		handleActionStates();
-
-		updateHeight();
 
 		super.update(elapsed);
 	}
@@ -221,12 +256,13 @@ class Hero extends FlxSprite
 	**/
 	public function onCollision(player:FlxSprite, other:FlxSprite)
 	{
-		unstick(player, other);
 		if (isOnGround())
 		{
 			currentJumpCount = 0;
 			actionState(ActionState.Normal);
 		}
+
+		unstick(player, other);
 	}
 
 	private function unstick(player:FlxSprite, other:FlxSprite) 
@@ -253,56 +289,68 @@ class Hero extends FlxSprite
 		}	
 	}
 
-	public function setHeight(newHeight:Float) 
+	public function isOnLastFrame():Bool
 	{
-		targetHeight = newHeight;
+		if (animation.curAnim != null)
+		{
+			var l = animation.curAnim.frames.length - 1;
+			trace(animation.frameIndex, animation.curAnim.frames, animation.curAnim.frames[l]);
+			return (animation.frameIndex == animation.curAnim.frames[l]);
+		}
+
+		return false;
 	}
 
-	public function updateHeight():Void
+	public function isOnFirstFrame():Bool
 	{
-		/*
-		var prevHeight = this.height;
-		var targetHeightPercentage = Math.abs(newHeight - prevHeight) / ((newHeight + prevHeight)/2);
+		if (animation.curAnim != null)
+		{
+			return (animation.frameIndex == animation.curAnim.frames[0]);
+		}
 
-		var newWidthScale = !preserveVolume? 1 : 1 + targetHeightPercentage;
-		var newHeightScale = 1 - targetHeightPercentage;
-
-		this.scale.set(newWidthScale, newHeightScale);
-		this.updateHitbox();
-		*/
-
-		/*
-		var prevHeight = this.frameHeight;
-		var prevWidth = this.frameWidth;
-		var heightDifference = targetHeight - prevHeight;
-		var targetHeightPercentage = Math.abs(heightDifference) / ((targetHeight + prevHeight)/2);
-
-		targetWidth = !preserveVolume? prevWidth : prevWidth + (prevWidth * targetHeightPercentage);
-		targetHeight = newHeight;
-		*/
-		//playerWidth = FlxMath.lerp(playerWidth, targetWidth, 1/8);
-		//playerHeight = FlxMath.lerp(playerHeight, targetHeight, 1/8);
-
-		//FlxTween.tween(this, { playerWidth: targetWidth, playerHeight: targetHeight}, 0.5, { ease: FlxEase.linear, onStart: onStart, onUpdate: onUpdate, onComplete: onComplete, type: ONESHOT });
-		FlxTween.tween(this, { playerWidth: targetWidth, playerHeight: targetHeight}, 0.1, { type: FlxTweenType.PINGPONG, ease: FlxEase.linear, onComplete: updateHitboxNC});
-
-		origin.set(playerWidth/2, playerHeight);
-		setGraphicSize(Math.round(playerWidth), Math.round(playerHeight));
-	
-		//origin.set(width/2, height);
-		
-		//width = playerWidth;
-		//height = playerHeight;
-		//offset.set(-0.5 * (width - frameWidth), -0.5 * (height - frameHeight));
-		//updateHitboxNC();
-		
+		return false;
 	}
-//tween:FlxTween
-	public function updateHitboxNC(tween:FlxTween):Void
+
+	public function updateAnimationAndHitbox(?animations:Array<String>, ?loopLastAnimation:Bool = true, ?holdLastFrame:Bool = false, ?forcePlay:Bool = false, ?reversed:Bool = false) 
 	{
-		width = Math.abs(scale.x) * frameWidth;
-		height = Math.abs(scale.y) * frameHeight;
-		offset.set(-0.5 * (width - frameWidth), -0.5 * (height - frameHeight));
+		var rev:Array<String> = animations;
+		rev.reverse();
+		
+
+		if (animations.length == 1)
+		{
+			animation.play(animations[0], forcePlay, reversed);
+
+			if (holdLastFrame == true && isOnLastFrame())
+				animation.curAnim.pause();
+		}
+		else if (animations.length > 1)
+		{
+			if (animation.curAnim != null)
+			{
+
+				if (animCycle != 0)
+				{
+					animation.play(animations[animCycle], forcePlay, reversed);
+
+					if (isOnLastFrame())
+					{
+						animCycle--;
+					}
+				}
+				else if (animCycle == 0)
+				{
+					if (holdLastFrame == true && isOnLastFrame())
+					{
+						animation.curAnim.pause();
+					}
+				}
+			}
+		}
+		
+		
+
+		updateHitbox();
 	}
 
 	public function handleActionStates():Void
@@ -310,13 +358,13 @@ class Hero extends FlxSprite
 		switch (actionState())
 		{
 			case (ActionState.Normal):
-				setHeight(HEIGHT_NORMAL);
+				updateAnimationAndHitbox(["uncrouching", "idle"], false, true, false);
 			case (ActionState.Crouching):
-				setHeight(HEIGHT_CROUCHING);
+				updateAnimationAndHitbox(["crouching"], false, true);
 			case (ActionState.Jumping):
-				setHeight(HEIGHT_JUMPING);
+				updateAnimationAndHitbox(["idle"]);
 			case (ActionState.Sliding):
-				setHeight(HEIGHT_CROUCHING);
+				updateAnimationAndHitbox(["crouching"]);
 			case (ActionState.Null):
 		}
 	}
