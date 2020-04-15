@@ -5,8 +5,10 @@ import flixel.FlxObject;
 import flixel.FlxG;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import entities.player.HeroParent;
+import entities.launchers.Cannon;
 import entities.terrain.Wall;
 import flixel.FlxState;
+import flixel.addons.editors.ogmo.FlxOgmo3Loader;
 
 class PlayState extends FlxState
 {
@@ -20,16 +22,24 @@ class PlayState extends FlxState
 	private var hero:Hero;
 	private var walls:FlxTypedGroup<Wall>;
 	private var fireballs:FlxTypedGroup<Fireball>;
+	//private var map:FlxOgmo3Loader;
 
 	override public function create():Void
 	{
 		super.create();
 
+		
+
 		hero = new Hero();
 		add(hero);
 
+		FlxG.camera.follow(hero, PLATFORMER, 1/32);
+
 		initializeWalls();
 		initializeFireballs();
+
+		var cann = new Cannon(150, 200);
+		add(cann);
 	}
 
 	private function initializeWalls() {

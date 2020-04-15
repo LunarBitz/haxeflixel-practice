@@ -5,24 +5,24 @@ import flixel.FlxSprite;
 class AnimationSystem
 {
     var owner:FlxSprite;
-	var lastAnimation:String = "";
+	var previousAnimation:String = "";
 	var currentAnimation:String = "";
 
 	public function new(sprite:FlxSprite, defaultAnimation:String = "") 
 	{
-        this.owner = sprite;
-		this.currentAnimation = defaultAnimation;
-		this.lastAnimation = currentAnimation;
+        owner = sprite;
+		currentAnimation = defaultAnimation;
+		previousAnimation = currentAnimation;
     }
 
 	public function hasChanged():Bool
 	{
-		return !(lastAnimation == currentAnimation);
+		return !(previousAnimation == currentAnimation);
 	}
 
 	public function setAnimation(newAnimation:String, forcePlay:Bool = false, playReversed:Bool = false, startingFrame:Int = 0, holdOnLastFrame = false):String
 	{
-        lastAnimation = currentAnimation;
+        previousAnimation = currentAnimation;
         owner.animation.play(newAnimation, forcePlay, playReversed, startingFrame);
 
         if (owner.animation.curAnim != null)
@@ -43,7 +43,7 @@ class AnimationSystem
     
     public function getPreviousAnimation():String
     {
-        return lastAnimation;
+        return previousAnimation;
     }
 
     public function isOnLastFrame():Bool

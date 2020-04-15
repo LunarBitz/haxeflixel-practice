@@ -29,11 +29,16 @@ class Hero extends FlxSprite
 	// Movement
 	private static var GRAVITY(default, never):Float = 981;
 	private static var TERMINAL_VELOCITY(default, never):Float = 1500;
-	private static var X_TARGET_SPEED(default, never):Float = 200;
+
+	private static var X_MAX_NORMAL_SPEED(default, never):Float = 200;
+	private static var X_MAX_AIR_SPEED(default, never):Float = 250;
+	private static var X_MAX_CROUCH_SPEED(default, never):Float = 0;
+
 	private static var JUMP_SPEED(default, never):Float = -350;
 
 	private var xSpeed:Float = 0;
 	private var ySpeed:Float = 0;
+	private var targetXSpeed:Float = 200;
 	
 	// Jumping
 	private var currentJumpCount:Int = 0;
@@ -55,6 +60,8 @@ class Hero extends FlxSprite
 		// Set up the needed custom systems
 		playerState = new Action(ActionState.Normal);
 		playerAnimation = new AnimationSystem(this);
+
+		targetXSpeed = X_MAX_NORMAL_SPEED;
 
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
@@ -85,7 +92,7 @@ class Hero extends FlxSprite
 			facing = (facingDirection == -1)? FlxObject.LEFT : FlxObject.RIGHT;
 
 		// Smooth out horizontal movement
-		velocity.x = FlxMath.lerp(velocity.x, X_TARGET_SPEED * facingDirection, MOVEMENT_INTERP_RATIO);
+		velocity.x = FlxMath.lerp(velocity.x, targetXSpeed * facingDirection, MOVEMENT_INTERP_RATIO);
 	   
 		// Jump
 		if (jumpInput == 1)
@@ -252,6 +259,8 @@ class Hero extends FlxSprite
 		switch (playerState.getState())
 		{
 			case (ActionState.Normal):
+				targetXSpeed = X_MAX_NORMAL_SPEED;
+
 				// Only allow an animation change if there has been a state change
 				if (playerState.hasChanged())
 				{
@@ -269,14 +278,20 @@ class Hero extends FlxSprite
 				}
 
 			case (ActionState.Crouching):
+				targetXSpeed = X_MAX_CROUCH_SPEED;
+
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("crouching", false, false, 0, true);
 
 			case (ActionState.Jumping):
+				targetXSpeed = X_MAX_AIR_SPEED;
+
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("idle");
 
 			case (ActionState.Sliding):
+				targetXSpeed = X_MAX_NORMAL_SPEED;
+
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("crouching");
 

@@ -11,23 +11,23 @@ enum ActionState
 
 class Action
 {
-	var lastState:ActionState = ActionState.Null;
+	var previousState:ActionState = ActionState.Null;
 	var currentState:ActionState = ActionState.Null;
 
 	public function new(defaultAction:ActionState = ActionState.Null) 
 	{
-		this.currentState = defaultAction;
-		this.lastState = currentState;
+		currentState = defaultAction;
+		previousState = currentState;
     }
 
 	public function hasChanged():Bool
 	{
-		return !(lastState == currentState);
+		return !(previousState == currentState);
 	}
 
 	public function setState(newState:ActionState):ActionState
 	{
-		lastState = currentState;
+		previousState = currentState;
 		currentState = newState;
 
 		return currentState;
@@ -36,6 +36,11 @@ class Action
 	public function getState():ActionState
 	{
 		return currentState;
+    }
+    
+    public function getPreviousState():ActionState
+    {
+        return previousState;
     }
     
 }
