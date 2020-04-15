@@ -12,57 +12,11 @@ import flixel.FlxG;
 import flixel.util.FlxColor;
 import flixel.FlxSprite;
 import flixel.FlxObject;
-
-private enum ActionState 
-{
-	Null;
-	Normal;
-	Jumping;
-	Crouching;
-	Sliding;
-}
-
-private class Action
-{
-	var lastState:ActionState = ActionState.Null;
-	var currentState:ActionState = ActionState.Null;
-	var changed:Bool = false;
-
-	private function checkChanged():Bool
-	{
-		return !(lastState == currentState);
-	}
-
-	private function setState(newState:ActionState = ActionState.Null):ActionState
-	{
-		lastState = currentState;
-		currentState = newState;
-
-		return currentState;
-	}
-
-	private function getState():ActionState
-	{
-		return currentState;
-	}
-
-}
-
-
+import systems.Animation;
+import systems.PlayerAction;
 
 class Hero extends FlxSprite 
 {
-	// Graphics
-	private var playerWidth:Float = 0;
-	private var playerHeight:Float = 0;
-	private var targetWidth:Float = 0;
-	private var targetHeight:Float = 0;
-
-	private static var THICKNESS_NORMAL(default, never):Float = 16;
-	private static var HEIGHT_NORMAL(default, never):Float = 32;
-	private static var HEIGHT_JUMPING(default, never):Float = 36;
-	private static var HEIGHT_CROUCHING(default, never):Float = 16;
-
 	// Input
 	private static var DEAD_ZONE(default, never):Float = 0.1;
 	private static var MOVEMENT_INTERP(default, never):Float = 1/16;
@@ -87,28 +41,25 @@ class Hero extends FlxSprite
 	private var currentJumpCount:Int = 0;
 	private var maxJumpCount:Int = 1;
 
-	// Player States
-	private var animCycle:Int = 0;
-	private var playerState:ActionState;
+	// Player Systems
+	private var playerState:Action;
 	private var facingDirection:Int = 1;
 	private var grounded:Bool = false;
+
+	private var playerAnimation:AnimationSystem;
 	
 
 	public function new(?X:Float = 0, ?Y:Float = 0) 
 	{
 		super(X, Y);
 
-		actionState(ActionState.Normal);
-		//
+		playerState = new Action(ActionState.Normal);
+		playerAnimation = new AnimationSystem(this);
 
-		targetWidth = THICKNESS_NORMAL;
-		targetHeight = HEIGHT_NORMAL;
 		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
-		animation.add("idle", [0], 30, false);
-		animation.add("crouching", [1, 2, 3, 4, 5, 6], 4, false);
-		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 4, false);
-
-		//updateAnimationAndHitbox("crouching");
+		animation.add("idle", [0], 45, false);
+		animation.add("crouching", [1, 2, 3, 4, 5, 6], 45, false);
+		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 45, false);
 
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
@@ -150,19 +101,6 @@ class Hero extends FlxSprite
 		handleActionStates();
 
 		super.update(elapsed);
-	}
-
-	private function actionState(newState:ActionState = ActionState.Null):ActionState
-	{
-		if (newState != ActionState.Null)
-		{
-			playerState = newState;
-			return newState;
-		}
-		else
-		{
-			return playerState;
-		}
 	}
 
 	/**
@@ -240,13 +178,14 @@ class Hero extends FlxSprite
 			velocity.y = JUMP_SPEED;
 			currentJumpCount++;
 			updateGrounded(false);
-			actionState(ActionState.Jumping);
+
+			playerState.setState(ActionState.Jumping);
 		}
 	}
 
 	private function crouch():Void 
 	{
-		actionState(ActionState.Crouching);
+		playerState.setState(ActionState.Crouching);
 	}
 
 	/**
@@ -259,112 +198,28 @@ class Hero extends FlxSprite
 		if (isOnGround())
 		{
 			currentJumpCount = 0;
-			actionState(ActionState.Normal);
+			playerState.setState(ActionState.Normal);
 		}
-
-		unstick(player, other);
-	}
-
-	private function unstick(player:FlxSprite, other:FlxSprite) 
-	{
-
-		//Horizontal Collision
-		if (overlapsAt(x + velocity.x, y, other))
-		{
-			while(!overlapsAt(x + FlxMath.signOf(velocity.x), y, other))
-			{
-				x += FlxMath.signOf(velocity.x);
-			}
-			//xSpeed = 0;
-		}
-
-		//vertical Collision
-		if (overlapsAt(x, y + velocity.y, other))
-		{
-			while(!overlapsAt(x, y + FlxMath.signOf(velocity.y), other))
-			{
-				y += FlxMath.signOf(velocity.y);
-			}
-			//ySpeed = 0;
-		}	
-	}
-
-	public function isOnLastFrame():Bool
-	{
-		if (animation.curAnim != null)
-		{
-			var l = animation.curAnim.frames.length - 1;
-			trace(animation.frameIndex, animation.curAnim.frames, animation.curAnim.frames[l]);
-			return (animation.frameIndex == animation.curAnim.frames[l]);
-		}
-
-		return false;
-	}
-
-	public function isOnFirstFrame():Bool
-	{
-		if (animation.curAnim != null)
-		{
-			return (animation.frameIndex == animation.curAnim.frames[0]);
-		}
-
-		return false;
-	}
-
-	public function updateAnimationAndHitbox(?animations:Array<String>, ?loopLastAnimation:Bool = true, ?holdLastFrame:Bool = false, ?forcePlay:Bool = false, ?reversed:Bool = false) 
-	{
-		var rev:Array<String> = animations;
-		rev.reverse();
-		
-
-		if (animations.length == 1)
-		{
-			animation.play(animations[0], forcePlay, reversed);
-
-			if (holdLastFrame == true && isOnLastFrame())
-				animation.curAnim.pause();
-		}
-		else if (animations.length > 1)
-		{
-			if (animation.curAnim != null)
-			{
-
-				if (animCycle != 0)
-				{
-					animation.play(animations[animCycle], forcePlay, reversed);
-
-					if (isOnLastFrame())
-					{
-						animCycle--;
-					}
-				}
-				else if (animCycle == 0)
-				{
-					if (holdLastFrame == true && isOnLastFrame())
-					{
-						animation.curAnim.pause();
-					}
-				}
-			}
-		}
-		
-		
-
-		updateHitbox();
 	}
 
 	public function handleActionStates():Void
 	{
-		switch (actionState())
+		switch (playerState.getState())
 		{
 			case (ActionState.Normal):
-				updateAnimationAndHitbox(["uncrouching", "idle"], false, true, false);
+				if (playerState.hasChanged() && playerAnimation.getPreviousAnimation() == "crouching")
+					playerAnimation.setAnimation("uncrouching");
+				if (playerAnimation.hasFinished() && playerAnimation.getPreviousAnimation() == "uncrouching")
+					playerAnimation.setAnimation("idle");
 			case (ActionState.Crouching):
-				updateAnimationAndHitbox(["crouching"], false, true);
+				if (playerState.hasChanged())
+					playerAnimation.setAnimation("crouching", false, false, 0, true);
 			case (ActionState.Jumping):
-				updateAnimationAndHitbox(["idle"]);
+				if (playerState.hasChanged())
+					playerAnimation.setAnimation("idle");
 			case (ActionState.Sliding):
-				updateAnimationAndHitbox(["crouching"]);
+				if (playerState.hasChanged())
+					playerAnimation.setAnimation("crouching");
 			case (ActionState.Null):
 		}
 	}
