@@ -13,7 +13,6 @@ class Action
 {
 	var lastState:ActionState = ActionState.Null;
 	var currentState:ActionState = ActionState.Null;
-	var changed:Bool = false;
 
 	public function new(defaultAction:ActionState = ActionState.Null) 
 	{
@@ -26,7 +25,7 @@ class Action
 		return !(lastState == currentState);
 	}
 
-	public function setState(newState:ActionState = ActionState.Null):ActionState
+	public function setState(newState:ActionState):ActionState
 	{
 		lastState = currentState;
 		currentState = newState;
@@ -37,6 +36,6 @@ class Action
 	public function getState():ActionState
 	{
 		return currentState;
-	}
-
+    }
+    
 }

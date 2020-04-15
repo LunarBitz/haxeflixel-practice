@@ -63,10 +63,10 @@ class PlayState extends FlxState
 		super.update(elapsed);
 
 		// Uncomment to collide hero against all wall objects.
-		FlxG.collide(hero, walls, hero.onCollision);
+		FlxG.collide(hero, walls, hero.onWallCollision);
 
 		// Uncomment to trigger custom logic when a player overlaps with a fireball.
-		FlxG.overlap(hero, fireballs, resolveHeroFireballOverlap);
+		FlxG.overlap(hero, fireballs, hero.onDamageCollision);
 
 		// Wrap various objects if gone offscreen.
 		screenWrapObject(hero);
@@ -89,12 +89,4 @@ class PlayState extends FlxState
 		}
 	}
 
-	/**
-		Function called when an overlap between hero and fireball is detected.
-	**/
-	private function resolveHeroFireballOverlap(hero:Hero, fireball:Fireball) {
-		//trace("Hero and Fireball collided!");
-		// fireball.kill();
-		// hero.kill();
-	}
 }

@@ -5,8 +5,6 @@ import haxe.CallStack.StackItem;
 import flixel.system.debug.watch.Watch;
 import flixel.system.FlxSplash;
 import haxe.macro.Expr.Case;
-import flixel.tweens.FlxTween;
-import flixel.tweens.FlxEase;
 import flixel.math.FlxMath;
 import flixel.FlxG;
 import flixel.util.FlxColor;
@@ -19,7 +17,7 @@ class Hero extends FlxSprite
 {
 	// Input
 	private static var DEAD_ZONE(default, never):Float = 0.1;
-	private static var MOVEMENT_INTERP(default, never):Float = 1/16;
+	private static var MOVEMENT_INTERP_RATIO(default, never):Float = 1/16;
 
 	private var leftInput:Int = 0;
 	private var rightInput:Int = 0;
@@ -49,27 +47,28 @@ class Hero extends FlxSprite
 	private var playerAnimation:AnimationSystem;
 	
 
+
 	public function new(?X:Float = 0, ?Y:Float = 0) 
 	{
 		super(X, Y);
 
+		// Set up the needed custom systems
 		playerState = new Action(ActionState.Normal);
 		playerAnimation = new AnimationSystem(this);
-
-		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
-		animation.add("idle", [0], 45, false);
-		animation.add("crouching", [1, 2, 3, 4, 5, 6], 45, false);
-		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 45, false);
 
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
 		maxVelocity.y = TERMINAL_VELOCITY;
 
-		//FlxG.watch.add(this, "targetHeight", "Target Height");
-		//FlxG.watch.add(this, "playerHeight", "Player Height");
-		//FlxG.watch.add(this, "origin", "Origin");
-		FlxG.watch.add(this, "animCycle", "Anim Cycle");
-		
+		// Set up graphics and animations
+		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
+
+		setFacingFlip(FlxObject.LEFT, true, false);
+		setFacingFlip(FlxObject.RIGHT, false, false);
+
+		animation.add("idle", [0], 45, false);
+		animation.add("crouching", [1, 2, 3, 4, 5, 6], 45, false);
+		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 45, false);
 	}
 
 	override function update(elapsed:Float) 
@@ -82,9 +81,11 @@ class Hero extends FlxSprite
 
 		// Update facing direction
 		var facingDirection:Int = getMoveDirectionCoefficient(horizontalMovementAxis);
+		if (facingDirection != 0)
+			facing = (facingDirection == -1)? FlxObject.LEFT : FlxObject.RIGHT;
 
 		// Smooth out horizontal movement
-		velocity.x = FlxMath.lerp(velocity.x, X_TARGET_SPEED * facingDirection, MOVEMENT_INTERP);
+		velocity.x = FlxMath.lerp(velocity.x, X_TARGET_SPEED * facingDirection, MOVEMENT_INTERP_RATIO);
 	   
 		// Jump
 		if (jumpInput == 1)
@@ -104,7 +105,7 @@ class Hero extends FlxSprite
 	}
 
 	/**
-		Function that simply returns an "axis" as a **Float** from two input values.
+		Function that simply returns an *axis* as a **Float** from two input values.
 	**/
 	private function inputAxis(negativeInput:Float, positiveInput:Float):Float 
 	{
@@ -130,7 +131,7 @@ class Hero extends FlxSprite
 		Uses player input to determine if movement should occur in a positive or negative X 
 		direction. If no movement inputs are detected, 0 is returned instead.
 		@param axis Float representing an axis of input.
-		@return Returns 1, 0, or -1. Multiply movement speed by this to set movement direction.
+		@return Returns **1**, **0**, or **-1**. Multiply movement speed by this to set movement direction.
 	**/
 	private function getMoveDirectionCoefficient(axis:Float):Int 
 	{      
@@ -138,8 +139,8 @@ class Hero extends FlxSprite
 	}
 
 	/**
-		Function to update the ***grounded*** variable via ***newBool*** or **FlxSprite.isTouching()**
-		@param newBool Boolean to update the ***grounded*** variable with. Will be ignored if *False*.
+		Function to update `grounded` via `newBool` or `FlxSprite.isTouching()`
+		@param newBool Boolean to update `grounded` with. Will be ignored if *False*.
 	**/
 	public function updateGrounded(newGround:Bool = false):Void
 	{
@@ -151,7 +152,7 @@ class Hero extends FlxSprite
 
 	/**
 		Returns if the player is on the ground or not
-		@return Returns the ***grounded*** variable.
+		@return Returns `grounded`.
 	**/
 	public function isOnGround():Bool 
 	{ 
@@ -159,8 +160,8 @@ class Hero extends FlxSprite
 	}
 
 	/**
-		Returns if the player is allowed to jump. Does NOT check if the player is grounded to allow for multi-jumping
-		@return Returns *True* only if *`currentJumpCount` < `maxJumpCount`*.
+		Returns if the player is allowed to jump
+		@return Returns **True** only if `grounded` is **True** *or* `currentJumpCount` <= `maxJumpCount`.
 	**/
 	public function canJump() 
 	{
@@ -170,8 +171,9 @@ class Hero extends FlxSprite
 	/**
 		Simple function for handling jump logic.
 		@param jumpCount Number of jumps allowed.
+		@return Returns **True** if jumping.
 	**/
-	private function jump(jumpCount:Int):Void 
+	private function jump(jumpCount:Int):Bool 
 	{
 		if (canJump()) 
 		{
@@ -180,20 +182,39 @@ class Hero extends FlxSprite
 			updateGrounded(false);
 
 			playerState.setState(ActionState.Jumping);
+
+			return true;
+		}
+		else 
+		{
+			return false;
 		}
 	}
 
-	private function crouch():Void 
+	/**
+		Returns if the player is allowed to jump
+		@return Returns **True** only if `grounded` is **True** *or* `currentJumpCount` <= `maxJumpCount`.
+	**/
+	public function canCrouch():Bool
 	{
-		playerState.setState(ActionState.Crouching);
+		return  isOnGround();
 	}
 
 	/**
-		Function that's called to resolve collision overlaps when invoked.
+		Function just set instructions for crouching
+	**/
+	private function crouch():Void 
+	{
+		if (canCrouch())
+			playerState.setState(ActionState.Crouching);
+	}
+
+	/**
+		Function that's called to resolve collision overlaping with solid objects when invoked.
 		@param player Object that collided with something.
 		@param other Object that `player` has collided with.
 	**/
-	public function onCollision(player:FlxSprite, other:FlxSprite)
+	public function onWallCollision(player:FlxSprite, other:FlxSprite):Void
 	{
 		if (isOnGround())
 		{
@@ -202,25 +223,65 @@ class Hero extends FlxSprite
 		}
 	}
 
+	/**
+		Function that's called to resolve collision overlaping with damage inducing objects when invoked.
+		@param player Object that collided with something.
+		@param other Object that `player` has collided with.
+	**/
+	public function onDamageCollision(player:FlxSprite, other:FlxSprite):Void
+	{
+		// We ONLY do a pixel perfect check if the object in question has collided with our simplified hitbox.
+		//
+		// Checking perfectly since we have a character that can crouch
+		// WAY easier than calculating and updating the hitbox. 
+		// It really is, since HaxeFlixel doesn't do a good job scaling with the set origin
+		//	which was resulting in glitchy floor detection
+		if (FlxG.pixelPerfectOverlap(player, other))
+		{
+			trace("We have really collided with the object");
+
+			other.kill();
+		}
+	}
+
+	/**
+		Function to handle what happens with each action state
+	**/
 	public function handleActionStates():Void
 	{
 		switch (playerState.getState())
 		{
 			case (ActionState.Normal):
-				if (playerState.hasChanged() && playerAnimation.getPreviousAnimation() == "crouching")
-					playerAnimation.setAnimation("uncrouching");
-				if (playerAnimation.hasFinished() && playerAnimation.getPreviousAnimation() == "uncrouching")
-					playerAnimation.setAnimation("idle");
+				// Only allow an animation change if there has been a state change
+				if (playerState.hasChanged())
+				{
+					// To uncrouching animation if previously crouching
+					if (playerAnimation.getPreviousAnimation() == "crouching")
+						playerAnimation.setAnimation("uncrouching");
+				}
+
+				// Only allow an animation change once the previous animation has finished
+				if (playerAnimation.isFinished())
+				{
+					// To idle animation if previously uncrouching
+					if (playerAnimation.getPreviousAnimation() == "uncrouching")
+						playerAnimation.setAnimation("idle");
+				}
+
 			case (ActionState.Crouching):
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("crouching", false, false, 0, true);
+
 			case (ActionState.Jumping):
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("idle");
+
 			case (ActionState.Sliding):
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("crouching");
+
 			case (ActionState.Null):
 		}
 	}
+
 }

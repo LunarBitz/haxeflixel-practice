@@ -7,7 +7,6 @@ class AnimationSystem
     var owner:FlxSprite;
 	var lastAnimation:String = "";
 	var currentAnimation:String = "";
-	var changed:Bool = false;
 
 	public function new(sprite:FlxSprite, defaultAnimation:String = "") 
 	{
@@ -21,10 +20,11 @@ class AnimationSystem
 		return !(lastAnimation == currentAnimation);
 	}
 
-	public function setAnimation(?newAnimation:String, ?forcePlay:Bool = false, ?playReversed:Bool = false, ?startingFrame:Int = 0, ?holdOnLastFrame = false):String
+	public function setAnimation(newAnimation:String, forcePlay:Bool = false, playReversed:Bool = false, startingFrame:Int = 0, holdOnLastFrame = false):String
 	{
         lastAnimation = currentAnimation;
         owner.animation.play(newAnimation, forcePlay, playReversed, startingFrame);
+
         if (owner.animation.curAnim != null)
         {
             currentAnimation = owner.animation.curAnim.name;
@@ -50,8 +50,8 @@ class AnimationSystem
     {
         if (owner.animation.curAnim != null)
         {
-            var l = owner.animation.curAnim.frames.length - 1;
-            return (owner.animation.frameIndex == owner.animation.curAnim.frames[l]);
+            var i = owner.animation.curAnim.frames.length - 1;
+            return (owner.animation.frameIndex == owner.animation.curAnim.frames[i]);
         }
 
         return false;
@@ -67,7 +67,7 @@ class AnimationSystem
         return false;
     }
 
-    public function hasFinished():Bool
+    public function isFinished():Bool
     {
         if (owner.animation.curAnim != null)
             return owner.animation.curAnim.finished;
