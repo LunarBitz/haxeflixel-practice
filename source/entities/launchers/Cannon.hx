@@ -37,17 +37,13 @@ class Cannon extends FlxSprite
         switch (facingDirection)
         {
             case 4:
-                trace("LEFT");
                 facing = FlxObject.LEFT;
             case 6:
-                trace("RIGHT");
                 facing = FlxObject.RIGHT;
             case 8:
-                trace("UP");
                 angle = -90;
                 facing = FlxObject.UP;
             case 2:
-                trace("DOWN");
                 angle = 90;
                 facing = FlxObject.DOWN;
         }

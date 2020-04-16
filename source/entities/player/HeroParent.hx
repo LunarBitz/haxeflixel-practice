@@ -12,65 +12,49 @@ import flixel.FlxSprite;
 import flixel.FlxObject;
 import systems.Animation;
 import systems.Action;
-
-enum PlayerStates 
-{
-	Null;
-	Normal;
-	Jumping;
-	Crouching;
-	Sliding;
-}
+import systems.Input;
+import flixel.input.keyboard.FlxKey;
+import entities.player.HeroStates;
 
 class Hero extends FlxSprite 
 {
+	// Systems
+	public var playerLogic:HeroStateLogics;
+	public var playerState:ActionSystem;
+	public var playerAnimation:AnimationSystem;
+	public var playerInput:InputSystem;
+
 	// Input
-	private static var DEAD_ZONE(default, never):Float = 0.1;
-	private static var MOVEMENT_INTERP_RATIO(default, never):Float = 1/16;
+	public var DEAD_ZONE(default, never):Float = 0.1;
+	public var MOVEMENT_INTERP_RATIO(default, never):Float = 1/16;
 
-	private var leftInput:Int = 0;
-	private var rightInput:Int = 0;
-	private var jumpInput:Int = 0;
-	private var crouchInput:Int = 0;
+	// Generals
+	public var facingDirection:Int = 1;
+	public var grounded:Bool = false;
 
-	private var horizontalMovementAxis:Float = 0;
-	
 	// Movement
-	private static var GRAVITY(default, never):Float = 981;
-	private static var TERMINAL_VELOCITY(default, never):Float = 1500;
+	public var GRAVITY(default, never):Float = 981;
+	public static var TERMINAL_VELOCITY(default, never):Float = 1500;
 
-	private static var X_MAX_NORMAL_SPEED(default, never):Float = 200;
-	private static var X_MAX_AIR_SPEED(default, never):Float = 250;
-	private static var X_MAX_CROUCH_SPEED(default, never):Float = 0;
-
-	private static var JUMP_SPEED(default, never):Float = -350;
-
-	private var xSpeed:Float = 0;
-	private var ySpeed:Float = 0;
-	private var targetXSpeed:Float = 200;
+	public var xSpeed:Float = 0;
+	public var ySpeed:Float = 0;
 	
 	// Jumping
-	private var currentJumpCount:Int = 0;
-	private var maxJumpCount:Int = 1;
+	public var JUMP_SPEED(default, never):Float = -350;
+	public var currentJumpCount:Int = 0;
+	public var maxJumpCount:Int = 2;
 
-	// Player Systems
-	private var playerState:ActionSystem;
-	private var facingDirection:Int = 1;
-	private var grounded:Bool = false;
-
-	private var playerAnimation:AnimationSystem;
 	
-
 
 	public function new(?X:Float = 0, ?Y:Float = 0) 
 	{
 		super(X, Y);
 
 		// Set up the needed custom systems
+		playerLogic = new HeroStateLogics(this);
 		playerState = new ActionSystem(Normal);
 		playerAnimation = new AnimationSystem(this);
-
-		targetXSpeed = X_MAX_NORMAL_SPEED;
+		playerInput = new InputSystem();
 
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
@@ -79,6 +63,8 @@ class Hero extends FlxSprite
 		// Set up graphics and animations
 		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
 
+		// Custom hitbox ignoring the transparent pixels
+		// Hard-coded because offset is so wierd
 		setSize(20, 32);
 		offset.set(6, 0);
 		centerOrigin(); 
@@ -93,7 +79,6 @@ class Hero extends FlxSprite
 
 	override function update(elapsed:Float) 
 	{
-
 		// Check and update the grounded state of the player
 		updateGrounded();
 
@@ -101,38 +86,13 @@ class Hero extends FlxSprite
 		gatherInputs();
 
 		// Update facing direction
-		var facingDirection:Int = getMoveDirectionCoefficient(horizontalMovementAxis);
+		facingDirection = getMoveDirectionCoefficient(playerInput.getAxis("horizontalAxis"));
 		if (facingDirection != 0)
 			facing = (facingDirection == -1)? FlxObject.LEFT : FlxObject.RIGHT;
 
-		// Smooth out horizontal movement
-		velocity.x = FlxMath.lerp(velocity.x, targetXSpeed * facingDirection, MOVEMENT_INTERP_RATIO);
-	   
-		// Jump
-		if (jumpInput == 1)
-		{
-			jump(maxJumpCount);
-		}
-
-		// Crouch
-		if (crouchInput == 1)
-		{
-			crouch();
-		}
-
 		handleStates();
 
-		
-
 		super.update(elapsed);
-	}
-
-	/**
-		Function that simply returns an *axis* as a **Float** from two input values.
-	**/
-	private function inputAxis(negativeInput:Float, positiveInput:Float):Float 
-	{
-		return (positiveInput - negativeInput);
 	}
 
 	/**
@@ -140,14 +100,13 @@ class Hero extends FlxSprite
 		relevant to the Hero. Helps keep code clean by restricting FlxG.keys input to a single spot,
 		which makes it much easier to change inputs, implement rebinding, etc. in the future.
 	**/
-	private function gatherInputs():Void 
+	private inline function gatherInputs():Void 
 	{
-		leftInput = (FlxG.keys.pressed.LEFT)? 1:0;
-		rightInput = (FlxG.keys.pressed.RIGHT)? 1:0;
-		horizontalMovementAxis = inputAxis(leftInput, rightInput);
-		
-		jumpInput = (FlxG.keys.justPressed.Z)? 1:0;
-		crouchInput = (FlxG.keys.pressed.DOWN)? 1:0;
+		playerInput.bindInput("left", [FlxKey.LEFT]);
+		playerInput.bindInput("right", [FlxKey.RIGHT]);
+		playerInput.bindInput("jump", [FlxKey.Z]);
+		playerInput.bindInput("crouch", [FlxKey.DOWN]);
+		playerInput.bindAxis("horizontalAxis", playerInput.getInput("left"), playerInput.getInput("right"));
 	}
 
 	/**
@@ -188,7 +147,7 @@ class Hero extends FlxSprite
 	**/
 	public function canJump() 
 	{
-		return  (isOnGround() || (currentJumpCount <= maxJumpCount)) &&
+		return  (isOnGround() || (currentJumpCount < maxJumpCount)) &&
 				(playerState.getState() != Crouching);
 	}
 
@@ -197,23 +156,11 @@ class Hero extends FlxSprite
 		@param jumpCount Number of jumps allowed.
 		@return Returns **True** if jumping.
 	**/
-	private function jump(jumpCount:Int):Bool 
+	public function jump(jumpCount:Int):Void 
 	{
-		trace(playerState.getState());
-		if (canJump()) 
-		{
-			velocity.y = JUMP_SPEED;
-			currentJumpCount++;
-			updateGrounded(false);
-
-			playerState.setState(Jumping);
-
-			return true;
-		}
-		else 
-		{
-			return false;
-		}
+		velocity.y = JUMP_SPEED;
+		currentJumpCount++;
+		updateGrounded(false);
 	}
 
 	/**
@@ -226,24 +173,13 @@ class Hero extends FlxSprite
 	}
 
 	/**
-		Function just set instructions for crouching
-	**/
-	private function crouch():Void 
-	{
-		if (canCrouch())
-		{
-			playerState.setState(PlayerStates.Crouching);
-		}	
-	}
-
-	/**
 		Function that's called to resolve collision overlaping with solid objects when invoked.
 		@param player Object that collided with something.
 		@param other Object that `player` has collided with.
 	**/
 	public function onWallCollision(player:FlxSprite, other:FlxSprite):Void
 	{
-		if (isOnGround())
+		if (playerState.getState() == Jumping && isOnGround())
 		{
 			currentJumpCount = 0;
 
@@ -273,50 +209,25 @@ class Hero extends FlxSprite
 	}
 
 	/**
-		Function to handle what happens with each action state
+		Function to handle what happens with each action state.
+		See `HeroStates.hx`
 	**/
 	public function handleStates():Void
 	{
-		
 		switch (playerState.getState())
 		{
 			case (PlayerStates.Normal):
-				targetXSpeed = X_MAX_NORMAL_SPEED;
-
-				// Only allow an animation change if there has been a state change
-				if (playerState.hasChanged())
-				{
-					// To uncrouching animation if previously crouching
-					if (playerAnimation.getPreviousAnimation() == "crouching")
-						playerAnimation.setAnimation("uncrouching");
-				}
-
-				// Only allow an animation change once the previous animation has finished
-				if (playerAnimation.isFinished())
-				{
-					// To idle animation if previously uncrouching
-					if (playerAnimation.getPreviousAnimation() == "uncrouching")
-						playerAnimation.setAnimation("idle");
-				}
+				playerLogic._State_Normal();
 
 			case (PlayerStates.Crouching):
-				targetXSpeed = X_MAX_CROUCH_SPEED;
-
-				if (playerState.hasChanged())
-					playerAnimation.setAnimation("crouching", false, false, 0, true);
+				playerLogic._State_Crouching();
 
 			case (PlayerStates.Jumping):
-				targetXSpeed = X_MAX_AIR_SPEED;
-
-				if (playerState.hasChanged())
-					playerAnimation.setAnimation("idle");
+				playerLogic._State_Jumping();
 
 			case (PlayerStates.Sliding):
-				targetXSpeed = X_MAX_NORMAL_SPEED;
-
-				if (playerState.hasChanged())
-					playerAnimation.setAnimation("crouching");
-
+				playerLogic._State_Sliding();
+				
 			case (PlayerStates.Null):
 		}
 	}
