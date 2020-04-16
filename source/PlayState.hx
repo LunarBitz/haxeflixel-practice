@@ -3,99 +3,91 @@ package;
 import entities.projectiles.Fireball;
 import flixel.FlxObject;
 import flixel.FlxG;
+import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import entities.player.HeroParent;
 import entities.launchers.Cannon;
 import entities.terrain.Wall;
 import flixel.FlxState;
 import flixel.addons.editors.ogmo.FlxOgmo3Loader;
+import flixel.tile.FlxTilemap;
 
 class PlayState extends FlxState
 {
-	private static var WALL_COUNT(default, never) = 10;
-	private static var WALL_START_X(default, never) = 150;
-	private static var WALL_START_Y(default, never) = 200;
-
-	private static var FIREBALL_COUNT(default, never) = 20;
-	private static var FIREBALL_SPAWN_BORDER(default, never) = 50;
-
 	private var hero:Hero;
-	private var walls:FlxTypedGroup<Wall>;
-	private var fireballs:FlxTypedGroup<Fireball>;
-	//private var map:FlxOgmo3Loader;
+
+	private var map:FlxOgmo3Loader;
+	private var graphicTiles:FlxTilemap;
+	private var solidTiles:FlxTypedGroup<Wall>;
+	private var cannons:FlxTypedGroup<Cannon>;
 
 	override public function create():Void
 	{
-		super.create();
-
-		
-
 		hero = new Hero();
 		add(hero);
 
-		FlxG.camera.follow(hero, PLATFORMER, 1/32);
+		FlxG.camera.follow(hero, PLATFORMER, 1/16);
 
-		initializeWalls();
-		initializeFireballs();
+		initOgmo3Map(AssetPaths.TestMap__ogmo, AssetPaths.TestMap__json);
 
-		var cann = new Cannon(150, 200);
-		add(cann);
-	}
 
-	private function initializeWalls() {
-		walls = new FlxTypedGroup<Wall>();
 
-		for (i in 0...WALL_COUNT) {
-			var x:Float = WALL_START_X + (i * Wall.WIDTH);
-			var y:Float = WALL_START_Y;
-			var wall:Wall = new Wall(x, y);
-			walls.add(wall);
-		}
-		add(walls);
-	}
-
-	private function initializeFireballs() {
-		fireballs = new FlxTypedGroup<Fireball>();
-
-		for (i in 0...FIREBALL_COUNT) {
-			var x:Float = FlxG.random.int(FIREBALL_SPAWN_BORDER, 
-				FlxG.width - FIREBALL_SPAWN_BORDER);
-			var y:Float = FlxG.random.int(FIREBALL_SPAWN_BORDER, 
-				FlxG.height - FIREBALL_SPAWN_BORDER);
-			var fireball = new Fireball(x, y);
-			fireballs.add(fireball);
-		}
-		add(fireballs);
+		super.create();
 	}
 
 	override public function update(elapsed:Float):Void
 	{
 		super.update(elapsed);
 
-		// Uncomment to collide hero against all wall objects.
-		FlxG.collide(hero, walls, hero.onWallCollision);
-
-		// Uncomment to trigger custom logic when a player overlaps with a fireball.
-		FlxG.overlap(hero, fireballs, hero.onDamageCollision);
-
-		// Wrap various objects if gone offscreen.
-		screenWrapObject(hero);
-		for (fireball in fireballs) {
-			screenWrapObject(fireball);
+		if (solidTiles != null)
+		{
+			// Must handle x collisions before the y collisions or 
+			// else the player will get stuck in the seams of solid object sprites
+			FlxG.overlap(hero, solidTiles, hero.onWallCollision, FlxObject.separateX);
+			FlxG.overlap(hero, solidTiles, hero.onWallCollision, FlxObject.separateY);	
 		}
+
 	}
 
-	private function screenWrapObject(wrappingObject:FlxObject) {
-		if (wrappingObject.x > FlxG.width) {
-			wrappingObject.x = 0 - wrappingObject.width;
-		} else if (wrappingObject.x + wrappingObject.width < 0) {
-			wrappingObject.x = FlxG.width;
+	private function initOgmo3Map(projectPath:String, projectJson:String):Void 
+	{
+		map = new FlxOgmo3Loader(AssetPaths.TestMap__ogmo, AssetPaths.TestMap__json);	
+
+		// Get the solid objects for collission
+		var grid:Map<String, Array<flixel.math.FlxPoint>> = map.loadGridMap("solid");
+		solidTiles = new FlxTypedGroup<Wall>();
+		for (point in grid['1'])
+		{
+			solidTiles.add(new Wall(point.x, point.y, 48, 48));
 		}
 
-		if (wrappingObject.y > FlxG.height) {
-			wrappingObject.y = 0 - wrappingObject.height;
-		} else if (wrappingObject.y + wrappingObject.height < 0) {
-			wrappingObject.y = FlxG.height;
+		// Get the graphical tilemaps
+		// Note: When creating a tileset in a sprite editor, ALWAYS leave the first tile 
+		//		 blank (0 alpha)! Will save you a lot of time and spared of the headache 
+		// 		 trying to figure out why the tiles aren't rendering.
+		graphicTiles = map.loadTilemap(AssetPaths.sprStationTileset__png, "graphics");
+		graphicTiles.follow();
+		// Disable collision for tiles 1-4 since we already established a collision grid
+		graphicTiles.setTileProperties(1, FlxObject.NONE, null, null, 4);
+
+		// Get all entities
+		cannons = new FlxTypedGroup<Cannon>();
+		map.loadEntities(placeEntities, "entities");
+
+		// Add groups for building
+		add(solidTiles);
+		add(graphicTiles);
+		add(cannons);
+	}
+
+	function placeEntities(entity:EntityData)
+	{
+		switch (entity.name)
+		{
+			case "player":
+				hero.setPosition(entity.x, entity.y);
+			case "cannon":
+				cannons.add(new Cannon(entity.x, entity.y, entity.values.facing_direction));
 		}
 	}
 

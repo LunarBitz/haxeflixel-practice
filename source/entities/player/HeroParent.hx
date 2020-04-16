@@ -11,7 +11,16 @@ import flixel.util.FlxColor;
 import flixel.FlxSprite;
 import flixel.FlxObject;
 import systems.Animation;
-import systems.PlayerAction;
+import systems.Action;
+
+enum PlayerStates 
+{
+	Null;
+	Normal;
+	Jumping;
+	Crouching;
+	Sliding;
+}
 
 class Hero extends FlxSprite 
 {
@@ -45,7 +54,7 @@ class Hero extends FlxSprite
 	private var maxJumpCount:Int = 1;
 
 	// Player Systems
-	private var playerState:Action;
+	private var playerState:ActionSystem;
 	private var facingDirection:Int = 1;
 	private var grounded:Bool = false;
 
@@ -58,7 +67,7 @@ class Hero extends FlxSprite
 		super(X, Y);
 
 		// Set up the needed custom systems
-		playerState = new Action(ActionState.Normal);
+		playerState = new ActionSystem(Normal);
 		playerAnimation = new AnimationSystem(this);
 
 		targetXSpeed = X_MAX_NORMAL_SPEED;
@@ -70,6 +79,10 @@ class Hero extends FlxSprite
 		// Set up graphics and animations
 		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
 
+		setSize(20, 32);
+		offset.set(6, 0);
+		centerOrigin(); 
+
 		setFacingFlip(FlxObject.LEFT, true, false);
 		setFacingFlip(FlxObject.RIGHT, false, false);
 
@@ -80,6 +93,7 @@ class Hero extends FlxSprite
 
 	override function update(elapsed:Float) 
 	{
+
 		// Check and update the grounded state of the player
 		updateGrounded();
 
@@ -106,7 +120,9 @@ class Hero extends FlxSprite
 			crouch();
 		}
 
-		handleActionStates();
+		handleStates();
+
+		
 
 		super.update(elapsed);
 	}
@@ -172,7 +188,8 @@ class Hero extends FlxSprite
 	**/
 	public function canJump() 
 	{
-		return  (isOnGround() || (currentJumpCount <= maxJumpCount));
+		return  (isOnGround() || (currentJumpCount <= maxJumpCount)) &&
+				(playerState.getState() != Crouching);
 	}
 
 	/**
@@ -182,13 +199,14 @@ class Hero extends FlxSprite
 	**/
 	private function jump(jumpCount:Int):Bool 
 	{
+		trace(playerState.getState());
 		if (canJump()) 
 		{
 			velocity.y = JUMP_SPEED;
 			currentJumpCount++;
 			updateGrounded(false);
 
-			playerState.setState(ActionState.Jumping);
+			playerState.setState(Jumping);
 
 			return true;
 		}
@@ -204,7 +222,7 @@ class Hero extends FlxSprite
 	**/
 	public function canCrouch():Bool
 	{
-		return  isOnGround();
+		return (isOnGround());
 	}
 
 	/**
@@ -213,7 +231,9 @@ class Hero extends FlxSprite
 	private function crouch():Void 
 	{
 		if (canCrouch())
-			playerState.setState(ActionState.Crouching);
+		{
+			playerState.setState(PlayerStates.Crouching);
+		}	
 	}
 
 	/**
@@ -226,7 +246,8 @@ class Hero extends FlxSprite
 		if (isOnGround())
 		{
 			currentJumpCount = 0;
-			playerState.setState(ActionState.Normal);
+
+			playerState.setState(Normal);
 		}
 	}
 
@@ -254,11 +275,12 @@ class Hero extends FlxSprite
 	/**
 		Function to handle what happens with each action state
 	**/
-	public function handleActionStates():Void
+	public function handleStates():Void
 	{
+		
 		switch (playerState.getState())
 		{
-			case (ActionState.Normal):
+			case (PlayerStates.Normal):
 				targetXSpeed = X_MAX_NORMAL_SPEED;
 
 				// Only allow an animation change if there has been a state change
@@ -277,25 +299,25 @@ class Hero extends FlxSprite
 						playerAnimation.setAnimation("idle");
 				}
 
-			case (ActionState.Crouching):
+			case (PlayerStates.Crouching):
 				targetXSpeed = X_MAX_CROUCH_SPEED;
 
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("crouching", false, false, 0, true);
 
-			case (ActionState.Jumping):
+			case (PlayerStates.Jumping):
 				targetXSpeed = X_MAX_AIR_SPEED;
 
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("idle");
 
-			case (ActionState.Sliding):
+			case (PlayerStates.Sliding):
 				targetXSpeed = X_MAX_NORMAL_SPEED;
 
 				if (playerState.hasChanged())
 					playerAnimation.setAnimation("crouching");
 
-			case (ActionState.Null):
+			case (PlayerStates.Null):
 		}
 	}
 
