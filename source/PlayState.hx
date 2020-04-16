@@ -1,25 +1,30 @@
 package;
 
-import entities.projectiles.Fireball;
+
 import flixel.FlxObject;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import entities.player.HeroParent;
 import entities.launchers.Cannon;
+import entities.collectables.Coin;
 import entities.terrain.Wall;
 import flixel.FlxState;
 import flixel.addons.editors.ogmo.FlxOgmo3Loader;
 import flixel.tile.FlxTilemap;
+import systems.Hud;
 
 class PlayState extends FlxState
 {
 	private var hero:Hero;
+	private var hud:GameHUD;
+	private var money:Int = 0;
 
 	private var map:FlxOgmo3Loader;
 	private var graphicTiles:FlxTilemap;
 	private var solidTiles:FlxTypedGroup<Wall>;
 	private var cannons:FlxTypedGroup<Cannon>;
+	private var coins:FlxTypedGroup<Coin>;
 
 	override public function create():Void
 	{
@@ -30,6 +35,8 @@ class PlayState extends FlxState
 
 		initOgmo3Map(AssetPaths.TestMap__ogmo, AssetPaths.TestMap__json);
 
+		hud = new GameHUD();
+ 		add(hud);
 
 
 		super.create();
@@ -46,6 +53,8 @@ class PlayState extends FlxState
 			FlxG.overlap(hero, solidTiles, hero.onWallCollision, FlxObject.separateX);
 			FlxG.overlap(hero, solidTiles, hero.onWallCollision, FlxObject.separateY);	
 		}
+
+		FlxG.overlap(hero, coins, onCoinOverlap);
 
 	}
 
@@ -72,12 +81,14 @@ class PlayState extends FlxState
 
 		// Get all entities
 		cannons = new FlxTypedGroup<Cannon>();
+		coins = new FlxTypedGroup<Coin>();
 		map.loadEntities(placeEntities, "entities");
 
 		// Add groups for building
 		add(solidTiles);
 		add(graphicTiles);
 		add(cannons);
+		add(coins);
 	}
 
 	function placeEntities(entity:EntityData)
@@ -88,6 +99,18 @@ class PlayState extends FlxState
 				hero.setPosition(entity.x, entity.y);
 			case "cannon":
 				cannons.add(new Cannon(entity.x, entity.y, entity.values.facing_direction));
+			case "coin":
+				coins.add(new Coin(entity.x, entity.y));
+		}
+	}
+
+	public function onCoinOverlap(player:Hero, coin:Coin)
+	{
+		if (player.alive && player.exists && coin.alive && coin.exists)
+		{
+			hud.updateHUD(coin.MAX_VALUE);
+
+			coin.kill();
 		}
 	}
 

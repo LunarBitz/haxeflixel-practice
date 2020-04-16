@@ -27,7 +27,7 @@ class Cannon extends FlxSprite
 
         cannonState = new ActionSystem(CannonStates.Idle);
 
-        loadGraphic("assets/images/sprCannon_1.png", false, 32, 32);
+        loadGraphic(AssetPaths.sprCannon_1__png, false, 32, 32);
 
         setFacingFlip(FlxObject.LEFT, true, false);
         setFacingFlip(FlxObject.RIGHT, false, false);

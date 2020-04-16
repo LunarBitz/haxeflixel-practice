@@ -7,7 +7,7 @@ import flixel.system.FlxSplash;
 import haxe.macro.Expr.Case;
 import flixel.math.FlxMath;
 import flixel.FlxG;
-import flixel.util.FlxColor;
+import systems.Hud;
 import flixel.FlxSprite;
 import flixel.FlxObject;
 import systems.Animation;
@@ -44,7 +44,7 @@ class Hero extends FlxSprite
 	public var currentJumpCount:Int = 0;
 	public var maxJumpCount:Int = 2;
 
-	
+
 
 	public function new(?X:Float = 0, ?Y:Float = 0) 
 	{

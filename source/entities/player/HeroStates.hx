@@ -36,7 +36,6 @@ class HeroStateLogics
         // Crouch
         if (owner.playerInput.getInput("crouch") == 1)
         {
-            trace("Entering Crouch");
             owner.playerState.setState(Crouching);
         }
 
@@ -68,7 +67,6 @@ class HeroStateLogics
         // Crouch
         if (owner.playerInput.getInput("crouch_released") == 1)
         {
-            trace("Exiting Crouch");
             owner.playerState.setState(Normal);
         }
 
