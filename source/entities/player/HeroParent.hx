@@ -75,6 +75,8 @@ class Hero extends FlxSprite
 		animation.add("idle", [0], 45, false);
 		animation.add("crouching", [1, 2, 3, 4, 5, 6], 45, false);
 		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 45, false);
+
+		gatherInputs();
 	}
 
 	override function update(elapsed:Float) 
@@ -83,7 +85,7 @@ class Hero extends FlxSprite
 		updateGrounded();
 
 		// Set up nicer input-handling for movement.
-		gatherInputs();
+		playerInput.poll();
 
 		// Update facing direction
 		facingDirection = getMoveDirectionCoefficient(playerInput.getAxis("horizontalAxis"));
@@ -102,11 +104,11 @@ class Hero extends FlxSprite
 	**/
 	private inline function gatherInputs():Void 
 	{
-		playerInput.bindInput("left", [FlxKey.LEFT]);
-		playerInput.bindInput("right", [FlxKey.RIGHT]);
-		playerInput.bindInput("jump", [FlxKey.Z]);
-		playerInput.bindInput("crouch", [FlxKey.DOWN]);
-		playerInput.bindAxis("horizontalAxis", playerInput.getInput("left"), playerInput.getInput("right"));
+		playerInput.bindInput("left", [FlxKey.LEFT, FlxKey.DELETE]);
+		playerInput.bindInput("right", [FlxKey.RIGHT, FlxKey.PAGEDOWN]);
+		playerInput.bindInput("jump", [FlxKey.Z, FlxKey.NUMPADSEVEN]);
+		playerInput.bindInput("crouch", [FlxKey.DOWN, FlxKey.END]);
+		playerInput.bindAxis("horizontalAxis", "left", "right");
 	}
 
 	/**
@@ -161,15 +163,6 @@ class Hero extends FlxSprite
 		velocity.y = JUMP_SPEED;
 		currentJumpCount++;
 		updateGrounded(false);
-	}
-
-	/**
-		Returns if the player is allowed to jump
-		@return Returns **True** only if `grounded` is **True** *or* `currentJumpCount` <= `maxJumpCount`.
-	**/
-	public function canCrouch():Bool
-	{
-		return (isOnGround());
 	}
 
 	/**

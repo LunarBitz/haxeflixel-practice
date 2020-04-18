@@ -37,6 +37,5 @@ class GameHUD extends FlxTypedGroup<FlxSprite>
     {
         totalScore += money;
         scoreCounter.text = Std.string(totalScore);
-        scoreCounter.x = (scoreIcon.x + scoreIcon.width) + (scoreIcon.width / 2);
     }
 }

@@ -6,12 +6,16 @@ import flixel.input.keyboard.FlxKey;
 class InputSystem
 {
     private var inputs:Map<String, Int>;
+    private var inputKeys:Map<String, Array<FlxKey>>;
     private var axis:Map<String, Float>;
+    private var axisKeys:Map<String, Array<String>>;
 
     public function new(defaultEntries:Bool = true)
     {
         inputs = new Map<String, Int>();
+        inputKeys = new Map<String, Array<FlxKey>>();
         axis = new Map<String, Float>();
+        axisKeys = new Map<String, Array<String>>();
 
         if (defaultEntries)
         {
@@ -42,6 +46,10 @@ class InputSystem
             throw "No entry has been created within InputSystem.createInput(). Please set at least one of the booleans to true";
             return;
         }
+        else if (incHeld || incPressed || incReleased)
+        {
+            inputKeys[name] = new Array<FlxKey>();
+        }
 
         if (incHeld) { inputs[name] = -1; }
         if (incPressed) { inputs[name + "_just_pressed"] = -1; }
@@ -55,6 +63,7 @@ class InputSystem
     public function createAxis(name:String) 
     {
         axis[name] = 0;
+        axisKeys[name] = new Array<String>();
     }
 
     /**
@@ -64,18 +73,19 @@ class InputSystem
         bindInput("jump", [FlxKey.Z, FlxKey.SPACE]);
         bindInput("up", [FlxKey.UP]);
         ```
+        Automatically creates the input mapping using `createInput()` if the entered axis didn't exist beforehand but we recommend that you create the axis yourself for more control
         @param name Name of axis to bind.
         @param keys List of keys that will be used to bind.
     **/
     public function bindInput(name:String, keys:Array<FlxKey>):Void 
     {
-        inputs[name] = FlxG.keys.anyPressed(keys)? 1:0;
+        if (keys == null)
+            return;
 
-        if (inputs.exists(name + "_just_pressed"))
-            inputs[name + "_just_pressed"] = FlxG.keys.anyJustPressed(keys)? 1:0;
+        if (inputs[name] == null)
+            createInput(name);
 
-        if (inputs.exists(name + "_released"))
-            inputs[name + "_released"] = FlxG.keys.anyJustReleased(keys)? 1:0;
+        inputKeys[name] = inputKeys[name].concat(keys);
     }
 
     /**
@@ -83,15 +93,39 @@ class InputSystem
         Concatenate "_just_pressed" or "_released" if you want to access inputs 
         respective to the names. For example:
         ```haxe
-        bindAxis("horizontalAxis", getInput("left"), getInput("right"));
+        bindAxis("horizontalAxis", "left", "right");
         ```
+        Automatically creates the axis using `createAxis()` if the entered axis didn't exist beforehand but we recommend that you create the axis yourself for more control
         @param name Name of axis to bind.
-        @param negativeInput Input that would normally lead to a negative input (such as moving left / up).
-        @param positiveInput Input that would normally lead to a positive input (such as moving right / down).
+        @param negativeInputName Name of input that would normally lead to a negative input (such as moving left / up).
+        @param positiveInputName Name of input that would normally lead to a positive input (such as moving right / down).
     **/
-    public function bindAxis(name:String, negativeInput:Int, positiveInput:Int):Void
+    public function bindAxis(name:String, negativeInputName:String, positiveInputName:String):Void
     {
-        axis[name] = (positiveInput - negativeInput);
+        if (axis[name] == null)
+            createAxis(name);
+
+        axisKeys[name][0] = negativeInputName;
+        axisKeys[name][1] = positiveInputName;
+    }
+
+    public function poll() 
+    {
+        for (key in inputs.keys())
+        {
+            if (key.indexOf("_just_pressed") != -1)
+                inputs[key] = FlxG.keys.anyJustPressed(inputKeys[key.split("_just_pressed")[0]])? 1:0;
+            else if (key.indexOf("_released") != -1)
+                inputs[key] = FlxG.keys.anyJustReleased(inputKeys[key.split("_released")[0]])? 1:0;
+            else
+                inputs[key] = FlxG.keys.anyPressed(inputKeys[key])? 1:0;
+        }
+
+        for (name in axis.keys())
+        {
+            axis[name] = (getInput(axisKeys[name][1]) - getInput(axisKeys[name][0]));
+        }
+            
     }
 
     /**
@@ -119,5 +153,36 @@ class InputSystem
     public function getAxis(name:String):Float
     {
         return axis[name];
+    }
+
+    /**
+        Gets the list of keys currently set for the specified input
+        @param name Name of input key to get keys from.
+        @return List of keys from `inputKeys`.
+    **/
+    public function getInputBinding(name:String):Array<FlxKey>
+    {
+        return inputKeys[name];
+    }
+
+    /**
+        Gets the list of keys currently set for the specified axis
+        @param name Name of axis key to get keys from.
+        @param wanted **-1** for the negative inputs, **1** for the positive inputs, **0** for all
+        @return List of keys from `axisKeys`.
+    **/
+    public function getAxisBinding(name:String, wanted:Int = 0):Array<FlxKey>
+    {
+        switch (wanted)
+        {
+            case -1:
+                return getInputBinding(axisKeys[name][0]);
+            case 0:
+                return getInputBinding(axisKeys[name][0]).concat(getInputBinding(axisKeys[name][1]));
+            case 1:
+                return getInputBinding(axisKeys[name][1]);
+            default: 
+                return null;
+        }
     }
 }
