@@ -56,6 +56,8 @@ class Hero extends FlxSprite
 		playerAnimation = new AnimationSystem(this);
 		playerInput = new InputSystem();
 
+		gatherInputs();
+
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
 		maxVelocity.y = TERMINAL_VELOCITY;
@@ -64,7 +66,7 @@ class Hero extends FlxSprite
 		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
 
 		// Custom hitbox ignoring the transparent pixels
-		// Hard-coded because offset is so wierd
+		// Hard-coded because offset was so finicky when updating
 		setSize(20, 32);
 		offset.set(6, 0);
 		centerOrigin(); 
@@ -75,15 +77,11 @@ class Hero extends FlxSprite
 		animation.add("idle", [0], 45, false);
 		animation.add("crouching", [1, 2, 3, 4, 5, 6], 45, false);
 		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 45, false);
-
-		gatherInputs();
+		
 	}
 
 	override function update(elapsed:Float) 
 	{
-		// Check and update the grounded state of the player
-		updateGrounded();
-
 		// Set up nicer input-handling for movement.
 		playerInput.poll();
 
@@ -102,7 +100,7 @@ class Hero extends FlxSprite
 		relevant to the Hero. Helps keep code clean by restricting FlxG.keys input to a single spot,
 		which makes it much easier to change inputs, implement rebinding, etc. in the future.
 	**/
-	private inline function gatherInputs():Void 
+	private function gatherInputs():Void 
 	{
 		playerInput.bindInput("left", [FlxKey.LEFT, FlxKey.DELETE]);
 		playerInput.bindInput("right", [FlxKey.RIGHT, FlxKey.PAGEDOWN]);
@@ -112,26 +110,39 @@ class Hero extends FlxSprite
 	}
 
 	/**
+		Function to handle what happens with each action state.
+		See `HeroStates.hx`
+	**/
+	public function handleStates():Void
+	{
+		switch (playerState.getState())
+		{
+			case (PlayerStates.Normal):
+				playerLogic._State_Normal();
+
+			case (PlayerStates.Crouching):
+				playerLogic._State_Crouching();
+
+			case (PlayerStates.Jumping):
+				playerLogic._State_Jumping();
+
+			case (PlayerStates.Sliding):
+				playerLogic._State_Sliding();
+				
+			case (PlayerStates.Null):
+			default:
+		}
+	}
+
+	/**
 		Uses player input to determine if movement should occur in a positive or negative X 
 		direction. If no movement inputs are detected, 0 is returned instead.
 		@param axis Float representing an axis of input.
 		@return Returns **1**, **0**, or **-1**. Multiply movement speed by this to set movement direction.
 	**/
-	private function getMoveDirectionCoefficient(axis:Float):Int 
+	private inline function getMoveDirectionCoefficient(axis:Float):Int 
 	{      
 		return (Math.abs(axis) <= DEAD_ZONE)? 0 : FlxMath.signOf(axis);
-	}
-
-	/**
-		Function to update `grounded` via `newBool` or `FlxSprite.isTouching()`
-		@param newBool Boolean to update `grounded` with. Will be ignored if *False*.
-	**/
-	public function updateGrounded(newGround:Bool = false):Void
-	{
-		if (newGround)
-			grounded = newGround;
-		else
-			grounded = this.isTouching(FlxObject.DOWN);
 	}
 
 	/**
@@ -140,14 +151,14 @@ class Hero extends FlxSprite
 	**/
 	public function isOnGround():Bool 
 	{ 
-		return grounded; 
+		return this.isTouching(FlxObject.DOWN); 
 	}
 
 	/**
 		Returns if the player is allowed to jump
 		@return Returns **True** only if `grounded` is **True** *or* `currentJumpCount` <= `maxJumpCount`.
 	**/
-	public function canJump() 
+	public inline function canJump() 
 	{
 		return  (isOnGround() || (currentJumpCount < maxJumpCount)) &&
 				(playerState.getState() != Crouching);
@@ -162,7 +173,6 @@ class Hero extends FlxSprite
 	{
 		velocity.y = JUMP_SPEED;
 		currentJumpCount++;
-		updateGrounded(false);
 	}
 
 	/**
@@ -201,28 +211,6 @@ class Hero extends FlxSprite
 		}
 	}
 
-	/**
-		Function to handle what happens with each action state.
-		See `HeroStates.hx`
-	**/
-	public function handleStates():Void
-	{
-		switch (playerState.getState())
-		{
-			case (PlayerStates.Normal):
-				playerLogic._State_Normal();
-
-			case (PlayerStates.Crouching):
-				playerLogic._State_Crouching();
-
-			case (PlayerStates.Jumping):
-				playerLogic._State_Jumping();
-
-			case (PlayerStates.Sliding):
-				playerLogic._State_Sliding();
-				
-			case (PlayerStates.Null):
-		}
-	}
+	
 
 }
