@@ -73,7 +73,7 @@ class InputSystem
 		bindInput("jump", [FlxKey.Z, FlxKey.SPACE]);
 		bindInput("up", [FlxKey.UP]);
 		```
-		Automatically creates the input mapping using `createInput()` if the entered axis didn't exist beforehand but we recommend that you create the axis yourself for more control
+		Automatically creates the input mapping using `createInput()` if the entered input didn't exist beforehand but we recommend that you create the input yourself for more control
 		@param name Name of axis to bind.
 		@param keys List of keys that will be used to bind.
 	**/
@@ -85,7 +85,7 @@ class InputSystem
 		if (inputs[name] == null)
 			createInput(name);
 
-		inputKeys[name] = inputKeys[name].concat(keys);
+		inputKeys[name] = keys;
 	}
 
 	/**
@@ -149,12 +149,12 @@ class InputSystem
 	/**
 		Gets the list of keys currently set for the specified axis
 		@param name Name of axis key to get keys from.
-		@param wanted **-1** for the negative inputs, **1** for the positive inputs, **0** for all
+		@param sign **-1** for the negative inputs, **1** for the positive inputs, **0** for all
 		@return List of keys from `axisKeys`.
 	**/
-	public function getAxisBinding(name:String, wanted:Int = 0):Array<FlxKey>
+	public function getAxisBinding(name:String, sign:Int = 0):Array<FlxKey>
 	{
-		switch (wanted)
+		switch (sign)
 		{
 			case -1:
 				return getInputBinding(axisKeys[name][0]);
@@ -169,20 +169,24 @@ class InputSystem
 
 	public function poll():Void
 	{
-		for (key in inputs.keys())
-		{
-			if (key.indexOf("_just_pressed") != -1)
-				inputs[key] = FlxG.keys.anyJustPressed(inputKeys[key.split("_just_pressed")[0]])? 1:0;
-			else if (key.indexOf("_released") != -1)
-				inputs[key] = FlxG.keys.anyJustReleased(inputKeys[key.split("_released")[0]])? 1:0;
-			else
-				inputs[key] = FlxG.keys.anyPressed(inputKeys[key])? 1:0;
-		}
+		// Run through all inputs
+		if (inputs != null && inputKeys != null)
+			for (name in inputs.keys())
+			{
+				if (name.indexOf("_just_pressed") != -1)
+					inputs[name] = FlxG.keys.anyJustPressed(inputKeys[name.split("_just_pressed")[0]])? 1:0;
+				else if (name.indexOf("_released") != -1)
+					inputs[name] = FlxG.keys.anyJustReleased(inputKeys[name.split("_released")[0]])? 1:0;
+				else
+					inputs[name] = FlxG.keys.anyPressed(inputKeys[name])? 1:0;
+			}
 
-		for (name in axis.keys())
-		{
-			axis[name] = (getInput(axisKeys[name][1]) - getInput(axisKeys[name][0]));
-		}
+		// Run through all axis
+		if (axis != null && axisKeys != null)
+			for (name in axis.keys())
+			{
+				axis[name] = (getInput(axisKeys[name][1]) - getInput(axisKeys[name][0]));
+			}
 	}
 	
 }

@@ -5,7 +5,7 @@ import flixel.FlxObject;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import entities.player.HeroParent;
+import entities.player.PlayerParent;
 import entities.launchers.Cannon;
 import entities.collectables.Coin;
 import entities.terrain.Wall;
@@ -16,7 +16,7 @@ import systems.Hud;
 
 class PlayState extends FlxState
 {
-	private var hero:Hero;
+	private var player:Player;
 	private var hud:GameHUD;
 	private var money:Int = 0;
 
@@ -28,10 +28,10 @@ class PlayState extends FlxState
 
 	override public function create():Void
 	{
-		hero = new Hero();
-		add(hero);
+		player = new Player();
+		add(player);
 
-		FlxG.camera.follow(hero, PLATFORMER, 1/16);
+		FlxG.camera.follow(player, PLATFORMER, 1/16);
 
 		initOgmo3Map(AssetPaths.TestMap__ogmo, AssetPaths.TestMap__json);
 
@@ -50,11 +50,11 @@ class PlayState extends FlxState
 		{
 			// Must handle x collisions before the y collisions or 
 			// else the player will get stuck in the seams of solid object sprites
-			FlxG.overlap(hero, solidTiles, hero.onWallCollision, FlxObject.separateX);
-			FlxG.overlap(hero, solidTiles, hero.onWallCollision, FlxObject.separateY);	
+			FlxG.overlap(player, solidTiles, player.onWallCollision, FlxObject.separateX);
+			FlxG.overlap(player, solidTiles, player.onWallCollision, FlxObject.separateY);	
 		}
 
-		FlxG.overlap(hero, coins, onCoinOverlap);
+		FlxG.overlap(player, coins, onCoinOverlap);
 
 	}
 
@@ -96,7 +96,7 @@ class PlayState extends FlxState
 		switch (entity.name)
 		{
 			case "player":
-				hero.setPosition(entity.x, entity.y);
+				player.setPosition(entity.x, entity.y);
 			case "cannon":
 				cannons.add(new Cannon(entity.x, entity.y, entity.values.facing_direction));
 			case "coin":
@@ -104,7 +104,7 @@ class PlayState extends FlxState
 		}
 	}
 
-	public function onCoinOverlap(player:Hero, coin:Coin)
+	public function onCoinOverlap(player:Player, coin:Coin)
 	{
 		if (player.alive && player.exists && coin.alive && coin.exists)
 		{

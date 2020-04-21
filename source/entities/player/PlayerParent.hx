@@ -14,9 +14,9 @@ import systems.Animation;
 import systems.Action;
 import systems.Input;
 import flixel.input.keyboard.FlxKey;
-import entities.player.HeroStates;
+import entities.player.PlayerStates;
 
-class Hero extends FlxSprite 
+class Player extends FlxSprite 
 {
 	// Systems
 	public var playerLogic:HeroStateLogics;
