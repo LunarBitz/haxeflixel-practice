@@ -14,9 +14,9 @@ import systems.Animation;
 import systems.Action;
 import systems.Input;
 import flixel.input.keyboard.FlxKey;
-import entities.player.HeroStates;
+import entities.player.PlayerStates;
 
-class Hero extends FlxSprite 
+class Player extends FlxSprite 
 {
 	// Systems
 	public var playerLogic:HeroStateLogics;
@@ -56,6 +56,8 @@ class Hero extends FlxSprite
 		playerAnimation = new AnimationSystem(this);
 		playerInput = new InputSystem();
 
+		gatherInputs();
+
 		// Set up "gravity" (constant acceleration) and "terminal velocity" (max fall speed)
 		acceleration.y = GRAVITY;
 		maxVelocity.y = TERMINAL_VELOCITY;
@@ -64,7 +66,7 @@ class Hero extends FlxSprite
 		loadGraphic("assets/images/sprPlayer.png", true, 32, 32);
 
 		// Custom hitbox ignoring the transparent pixels
-		// Hard-coded because offset is so wierd
+		// Hard-coded because offset was so finicky when updating
 		setSize(20, 32);
 		offset.set(6, 0);
 		centerOrigin(); 
@@ -75,15 +77,13 @@ class Hero extends FlxSprite
 		animation.add("idle", [0], 45, false);
 		animation.add("crouching", [1, 2, 3, 4, 5, 6], 45, false);
 		animation.add("uncrouching", [6, 5, 4, 3, 2, 1], 45, false);
+		
 	}
 
 	override function update(elapsed:Float) 
 	{
-		// Check and update the grounded state of the player
-		updateGrounded();
-
 		// Set up nicer input-handling for movement.
-		gatherInputs();
+		playerInput.poll();
 
 		// Update facing direction
 		facingDirection = getMoveDirectionCoefficient(playerInput.getAxis("horizontalAxis"));
@@ -100,13 +100,38 @@ class Hero extends FlxSprite
 		relevant to the Hero. Helps keep code clean by restricting FlxG.keys input to a single spot,
 		which makes it much easier to change inputs, implement rebinding, etc. in the future.
 	**/
-	private inline function gatherInputs():Void 
+	private function gatherInputs():Void 
 	{
-		playerInput.bindInput("left", [FlxKey.LEFT]);
-		playerInput.bindInput("right", [FlxKey.RIGHT]);
-		playerInput.bindInput("jump", [FlxKey.Z]);
-		playerInput.bindInput("crouch", [FlxKey.DOWN]);
-		playerInput.bindAxis("horizontalAxis", playerInput.getInput("left"), playerInput.getInput("right"));
+		playerInput.bindInput("left", [FlxKey.LEFT, FlxKey.DELETE]);
+		playerInput.bindInput("right", [FlxKey.RIGHT, FlxKey.PAGEDOWN]);
+		playerInput.bindInput("jump", [FlxKey.Z, FlxKey.NUMPADSEVEN]);
+		playerInput.bindInput("crouch", [FlxKey.DOWN, FlxKey.END]);
+		playerInput.bindAxis("horizontalAxis", "left", "right");
+	}
+
+	/**
+		Function to handle what happens with each action state.
+		See `HeroStates.hx`
+	**/
+	public function handleStates():Void
+	{
+		switch (playerState.getState())
+		{
+			case (PlayerStates.Normal):
+				playerLogic._State_Normal();
+
+			case (PlayerStates.Crouching):
+				playerLogic._State_Crouching();
+
+			case (PlayerStates.Jumping):
+				playerLogic._State_Jumping();
+
+			case (PlayerStates.Sliding):
+				playerLogic._State_Sliding();
+				
+			case (PlayerStates.Null):
+			default:
+		}
 	}
 
 	/**
@@ -115,21 +140,9 @@ class Hero extends FlxSprite
 		@param axis Float representing an axis of input.
 		@return Returns **1**, **0**, or **-1**. Multiply movement speed by this to set movement direction.
 	**/
-	private function getMoveDirectionCoefficient(axis:Float):Int 
+	private inline function getMoveDirectionCoefficient(axis:Float):Int 
 	{      
 		return (Math.abs(axis) <= DEAD_ZONE)? 0 : FlxMath.signOf(axis);
-	}
-
-	/**
-		Function to update `grounded` via `newBool` or `FlxSprite.isTouching()`
-		@param newBool Boolean to update `grounded` with. Will be ignored if *False*.
-	**/
-	public function updateGrounded(newGround:Bool = false):Void
-	{
-		if (newGround)
-			grounded = newGround;
-		else
-			grounded = this.isTouching(FlxObject.DOWN);
 	}
 
 	/**
@@ -138,14 +151,14 @@ class Hero extends FlxSprite
 	**/
 	public function isOnGround():Bool 
 	{ 
-		return grounded; 
+		return this.isTouching(FlxObject.DOWN); 
 	}
 
 	/**
 		Returns if the player is allowed to jump
 		@return Returns **True** only if `grounded` is **True** *or* `currentJumpCount` <= `maxJumpCount`.
 	**/
-	public function canJump() 
+	public inline function canJump() 
 	{
 		return  (isOnGround() || (currentJumpCount < maxJumpCount)) &&
 				(playerState.getState() != Crouching);
@@ -160,16 +173,6 @@ class Hero extends FlxSprite
 	{
 		velocity.y = JUMP_SPEED;
 		currentJumpCount++;
-		updateGrounded(false);
-	}
-
-	/**
-		Returns if the player is allowed to jump
-		@return Returns **True** only if `grounded` is **True** *or* `currentJumpCount` <= `maxJumpCount`.
-	**/
-	public function canCrouch():Bool
-	{
-		return (isOnGround());
 	}
 
 	/**
@@ -208,28 +211,6 @@ class Hero extends FlxSprite
 		}
 	}
 
-	/**
-		Function to handle what happens with each action state.
-		See `HeroStates.hx`
-	**/
-	public function handleStates():Void
-	{
-		switch (playerState.getState())
-		{
-			case (PlayerStates.Normal):
-				playerLogic._State_Normal();
-
-			case (PlayerStates.Crouching):
-				playerLogic._State_Crouching();
-
-			case (PlayerStates.Jumping):
-				playerLogic._State_Jumping();
-
-			case (PlayerStates.Sliding):
-				playerLogic._State_Sliding();
-				
-			case (PlayerStates.Null):
-		}
-	}
+	
 
 }

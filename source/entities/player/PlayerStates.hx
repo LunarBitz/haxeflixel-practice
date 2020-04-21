@@ -1,6 +1,6 @@
 package entities.player;
 
-import entities.player.HeroParent;
+import entities.player.PlayerParent;
 import flixel.math.FlxMath;
 
 enum PlayerStates 
@@ -14,12 +14,9 @@ enum PlayerStates
 
 class HeroStateLogics
 {
-    var owner:Hero;
+    var owner:Player;
 
-    public function new(hero:Hero) 
-    {
-        owner = hero;
-    }    
+    public function new(hero:Player) { owner = hero; }    
      
     public function _State_Normal() 
     {
@@ -82,7 +79,7 @@ class HeroStateLogics
         // Smooth out horizontal movement
         owner.velocity.x = FlxMath.lerp(owner.velocity.x, 250 * owner.facingDirection, owner.MOVEMENT_INTERP_RATIO);
         
-        // Jump
+        // 2nd, nth jump
         if (owner.playerInput.getInput("jump_just_pressed") == 1 && owner.canJump())
         {
             owner.jump(owner.maxJumpCount);
